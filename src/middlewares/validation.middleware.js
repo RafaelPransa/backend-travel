@@ -20,6 +20,20 @@ const travelBookingSchema = z.object({
   seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif')
 });
 
+// Schema untuk Request Charter Pariwisata
+const charterRequestSchema = z.object({
+  car_type: z.enum(['Luxio', 'Elf'], { errorMap: () => ({ message: "Pilihan armada hanya 'Luxio' atau 'Elf'" }) }),
+  destination: z.string().min(3, 'Destinasi wajib diisi'),
+  departure_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format departure_date harus YYYY-MM-DD'),
+  return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format return_date harus YYYY-MM-DD'),
+  notes: z.string().optional()
+}).refine((data) => {
+  return new Date(data.return_date) >= new Date(data.departure_date);
+}, {
+  message: "Tanggal pulang (return_date) tidak boleh mendahului tanggal berangkat (departure_date)",
+  path: ["return_date"]
+});
+
 // Middleware Validasi Generic
 const validate = (schema) => (req, res, next) => {
   try {
@@ -42,5 +56,6 @@ module.exports = {
   registerSchema,
   loginSchema,
   travelBookingSchema,
+  charterRequestSchema,
   validate
 };

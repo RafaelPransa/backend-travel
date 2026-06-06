@@ -5,6 +5,7 @@ const helmet = require('helmet');
 // Import Routes
 const authRoutes = require('./routes/auth.routes');
 const travelRoutes = require('./routes/travel.routes');
+const charterRoutes = require('./routes/charter.routes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/travel', travelRoutes);
+app.use('/api/charter', charterRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

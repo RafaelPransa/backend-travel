@@ -61,8 +61,12 @@ Sistem wajib memisahkan hak akses menggunakan Role-Based Access Control (RBAC) s
 * **Manifest:** Backend harus bisa menyajikan data manifest penumpang per mobil untuk dibaca oleh Driver.
 
 ### Layanan 2: Booking Travel (Charters/Pariwisata)
-* **Quoting Flow:** Karena tarif pariwisata bersifat fleksibel (menunggu hasil wawancara lanjutan), alurnya saat ini adalah:
-  `Customer isi form pengajuan` -> `Status: Pending` -> `Super Admin input harga manual setelah negosiasi` -> `Status: Approved/Ready to Pay` -> `Customer bayar`.
+* **Automated Price Calculation:** Sistem menghitung total biaya sewa secara otomatis di backend saat Customer melakukan pemesanan berdasarkan durasi hari dan jenis armada.
+* **Aturan Tarif Resmi:**
+  * Armada `Luxio` = Rp1.200.000 / hari
+  * Armada `Elf` = Rp1.500.000 / hari
+* **Alur Logika Transaksi:** `Customer input order (Jenis Mobil, Tanggal Berangkat, Tanggal Pulang)` -> `Backend menghitung: (Total Hari) x Harga Per Hari` -> `Pesanan disimpan dengan kolom offered_price terisi otomatis dan Status: pending` -> `Customer upload bukti transfer` -> `Super Admin melakukan verifikasi` -> `Status: paid`.
+* **Validasi Durasi:** Perhitungan hari minimal adalah 1 hari jika tanggal berangkat dan pulang di hari yang sama. Jika tanggal pulang mendahului tanggal berangkat, backend wajib menolak request (Error 400).
 
 ### Layanan 3: Antar Paket (Courier)
 * **Resi Otomatis (Waybill):** Backend wajib men-generate nomor resi unik secara otomatis saat pesanan paket dibuat menggunakan format acak/non-incremental (Contoh: `RTP-2026XXXXX` atau menggunakan NanoID/UUID pendek) untuk menjaga kerahasiaan volume transaksi.
@@ -93,8 +97,9 @@ Agar sesi *vibe coding* tidak melantur, fitur berikut **TIDAK BOLEH** dibuat pad
 * `GET /manifest/:schedule_id` (Driver & Admin: Lihat penumpang)
 
 ### /api/bookings (Pariwisata)
-* `POST /charter/request` (Customer: Ajukan sewa)
-* `PUT /charter/:id/price` (Super Admin: Input harga deal)
+* `POST /api/charter/request` (Customer: Ajukan sewa + auto kalkulasi harga)
+* `GET /api/charter/history` (Customer: Lihat riwayat personal | Super Admin: Lihat semua pengajuan sewa)
+* `PUT /api/charter/:id/verify` (Super Admin: Verifikasi bukti pembayaran dan ubah status menjadi 'paid')
 
 ### /api/packages (Antar Paket)
 * `POST /shipments` (Customer: Buat pengiriman, generate resi)
