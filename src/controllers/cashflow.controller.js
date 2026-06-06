@@ -22,6 +22,34 @@ const getCashflowSummary = async (req, res) => {
   }
 };
 
+const addExpense = async (req, res) => {
+  try {
+    const { amount, category, description } = req.body;
+    
+    const expenseData = {
+      amount,
+      type: 'expense',
+      category,
+      description
+    };
+
+    const newExpense = await CashflowModel.addCashflow(expenseData);
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Pengeluaran operasional berhasil dicatat',
+      data: newExpense
+    });
+  } catch (error) {
+    console.error('Error addExpense:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mencatat pengeluaran operasional'
+    });
+  }
+};
+
 module.exports = {
-  getCashflowSummary
+  getCashflowSummary,
+  addExpense
 };

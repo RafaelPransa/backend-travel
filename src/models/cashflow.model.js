@@ -22,7 +22,13 @@ const getSummary = async () => {
   };
 };
 
+const addCashflow = async (data) => {
+  const [record] = await db('cashflows').insert(data).returning('*');
+  return record;
+};
+
 module.exports = {
   getAllCashflows,
-  getSummary
+  getSummary,
+  addCashflow
 };

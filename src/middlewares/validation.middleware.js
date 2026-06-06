@@ -48,6 +48,48 @@ const packageStatusSchema = z.object({
   status: z.enum(['received', 'sorting', 'on_transit', 'delivered'], { errorMap: () => ({ message: "Status tidak valid" }) })
 });
 
+// --- Skema Validasi Super Admin ---
+const adminValidationSchemas = {
+  fleet: z.object({
+    plate_number: z.string().min(1),
+    car_type: z.string().min(1),
+    seat_capacity: z.number().int().positive(),
+    status: z.enum(['active', 'maintenance']).optional()
+  }),
+  route: z.object({
+    origin: z.string().min(1),
+    destination: z.string().min(1),
+    base_price: z.number().positive()
+  }),
+  schedule: z.object({
+    route_id: z.string().uuid(),
+    departure_time: z.string().datetime(),
+    status: z.enum(['scheduled', 'board', 'driving', 'completed', 'cancelled']).optional()
+  }),
+  user: z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(6).optional(),
+    phone_number: z.string().min(10),
+    role: z.enum(['customer', 'driver', 'super_admin'])
+  }),
+  banner: z.object({
+    title: z.string().min(1),
+    image_url: z.string().url(),
+    is_active: z.boolean().optional()
+  }),
+  destination: z.object({
+    name: z.string().min(1),
+    description: z.string().min(1),
+    image_url: z.string().url()
+  }),
+  expense: z.object({
+    amount: z.number().positive(),
+    category: z.string().min(1),
+    description: z.string().optional()
+  })
+};
+
 // Middleware Validasi Generic
 const validate = (schema) => (req, res, next) => {
   try {
@@ -73,5 +115,6 @@ module.exports = {
   charterRequestSchema,
   packageShipmentSchema,
   packageStatusSchema,
+  adminValidationSchemas,
   validate
 };
