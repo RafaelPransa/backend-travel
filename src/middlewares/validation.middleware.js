@@ -90,6 +90,13 @@ const adminValidationSchemas = {
   })
 };
 
+// --- Skema Validasi Driver ---
+const driverValidationSchemas = {
+  scheduleStatus: z.object({
+    status: z.enum(['scheduled', 'board', 'driving', 'completed', 'cancelled'], { errorMap: () => ({ message: "Status perjalanan tidak valid" }) })
+  })
+};
+
 // Middleware Validasi Generic
 const validate = (schema) => (req, res, next) => {
   try {
@@ -116,5 +123,6 @@ module.exports = {
   packageShipmentSchema,
   packageStatusSchema,
   adminValidationSchemas,
+  driverValidationSchemas,
   validate
 };

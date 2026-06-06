@@ -9,6 +9,7 @@ const charterRoutes = require('./routes/charter.routes');
 const packageRoutes = require('./routes/package.routes');
 const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
+const driverRoutes = require('./routes/driver.routes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/charter', charterRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/admin/cashflow', cashflowRoutes);
 app.use('/api/admin/master', masterDataRoutes);
+app.use('/api/driver', driverRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
