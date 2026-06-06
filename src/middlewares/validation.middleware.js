@@ -14,6 +14,12 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password wajib diisi')
 });
 
+// Schema untuk Booking Travel Regular
+const travelBookingSchema = z.object({
+  schedule_id: z.string().uuid('Format schedule_id tidak valid'),
+  seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif')
+});
+
 // Middleware Validasi Generic
 const validate = (schema) => (req, res, next) => {
   try {
@@ -35,5 +41,6 @@ const validate = (schema) => (req, res, next) => {
 module.exports = {
   registerSchema,
   loginSchema,
+  travelBookingSchema,
   validate
 };
