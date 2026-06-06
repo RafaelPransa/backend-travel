@@ -34,6 +34,20 @@ const charterRequestSchema = z.object({
   path: ["return_date"]
 });
 
+// Schema untuk Pengiriman Paket
+const packageShipmentSchema = z.object({
+  sender_name: z.string().min(3, 'Nama pengirim wajib diisi'),
+  sender_phone: z.string().min(10, 'Nomor HP pengirim tidak valid').max(15),
+  receiver_name: z.string().min(3, 'Nama penerima wajib diisi'),
+  receiver_phone: z.string().min(10, 'Nomor HP penerima tidak valid').max(15),
+  receiver_address: z.string().min(10, 'Alamat penerima wajib diisi lengkap'),
+  package_description: z.string().min(3, 'Deskripsi paket wajib diisi')
+});
+
+const packageStatusSchema = z.object({
+  status: z.enum(['received', 'sorting', 'on_transit', 'delivered'], { errorMap: () => ({ message: "Status tidak valid" }) })
+});
+
 // Middleware Validasi Generic
 const validate = (schema) => (req, res, next) => {
   try {
@@ -57,5 +71,7 @@ module.exports = {
   loginSchema,
   travelBookingSchema,
   charterRequestSchema,
+  packageShipmentSchema,
+  packageStatusSchema,
   validate
 };
