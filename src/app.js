@@ -10,6 +10,7 @@ const packageRoutes = require('./routes/package.routes');
 const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
+const startSeatLockCron = require('./jobs/seatLockCron');
 
 const app = express();
 
@@ -43,10 +44,10 @@ app.use('/api/driver', driverRoutes);
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({
-    status: 'error',
-    message: 'Terjadi kesalahan internal pada server'
-  });
+  res.status(500).json({ status: 'error', message: 'Internal Server Error' });
 });
+
+// Hidupkan Background Tasks (Cron Jobs)
+startSeatLockCron();
 
 module.exports = app;
