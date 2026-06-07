@@ -117,3 +117,6 @@ public/uploads/
 
 # System Prompt
 SYSTEM_PROMPT.md
+
+# schema dbml
+schema.dbml
