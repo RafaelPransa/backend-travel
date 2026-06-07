@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,19 +12,17 @@ const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
-const path = require('path');
 
 const app = express();
 
-// Middleware
+// Middleware Global
 app.use(helmet());
 app.use(cors());
-app.use(express.json()); // Parsing application/json
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Menyajikan file statis (Uploads)
+// Menyajikan file statis (Uploads: Bukti pembayaran)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
-
-app.use(express.urlencoded({ extended: true })); // Parsing application/x-www-form-urlencoded
 
 // ----------------------------------------------------
 // REGISTRASI ROUTES
@@ -38,12 +37,17 @@ app.get('/', (req, res) => {
   });
 });
 
+// Service Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/travel', travelRoutes);
 app.use('/api/charter', charterRoutes);
 app.use('/api/packages', packageRoutes);
+
+// Admin Routes
 app.use('/api/admin/cashflow', cashflowRoutes);
 app.use('/api/admin/master', masterDataRoutes);
+
+// Driver Routes
 app.use('/api/driver', driverRoutes);
 
 // Global Error Handler

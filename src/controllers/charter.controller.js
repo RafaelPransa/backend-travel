@@ -1,14 +1,24 @@
 const CharterModel = require('../models/charter.model');
 
-// Fungsi untuk menghitung selisih hari
+// Tarif resmi per hari (Konstanta, sesuai PRD.md)
+const TARIFF_PER_DAY = {
+  Luxio: 1200000,
+  Elf: 1500000
+};
+
+/**
+ * Menghitung jumlah hari sewa (inklusif).
+ * Contoh: Berangkat 1 Juli, Pulang 3 Juli = 3 hari (bukan 2).
+ * Jika tanggal sama (berangkat dan pulang di hari yang sama) = 1 hari.
+ */
 const calculateDays = (start, end) => {
   const startDate = new Date(start);
   const endDate = new Date(end);
   const timeDiff = endDate.getTime() - startDate.getTime();
   const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-  
-  // Minimal 1 hari
-  return daysDiff === 0 ? 1 : daysDiff;
+
+  // Minimal 1 hari, dan inklusif (tambah 1 hari untuk menghitung hari keberangkatan)
+  return Math.max(daysDiff + 1, 1);
 };
 
 const requestCharter = async (req, res) => {
@@ -18,8 +28,8 @@ const requestCharter = async (req, res) => {
 
     const days = calculateDays(departure_date, return_date);
     
-    // Tarif sesuai armada
-    const tariffPerDay = car_type === 'Luxio' ? 1200000 : 1500000;
+    // Tarif sesuai armada (dari konstanta, bukan hardcode angka)
+    const tariffPerDay = TARIFF_PER_DAY[car_type];
     const offered_price = days * tariffPerDay;
 
     const newRequest = await CharterModel.createRequest({

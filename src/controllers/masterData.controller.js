@@ -14,7 +14,8 @@ const getRecords = (table) => async (req, res) => {
 
 const createRecord = (table) => async (req, res) => {
   try {
-    const data = req.body;
+    // Clone req.body agar tidak mutasi langsung (side-effect prevention)
+    const data = { ...req.body };
     
     // Khusus tabel users, hash password
     if (table === 'users' && data.password) {
@@ -33,7 +34,8 @@ const createRecord = (table) => async (req, res) => {
 const updateRecord = (table) => async (req, res) => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    // Clone req.body agar tidak mutasi langsung (side-effect prevention)
+    const data = { ...req.body };
 
     if (table === 'users' && data.password) {
       const salt = await bcrypt.genSalt(10);
