@@ -17,8 +17,16 @@ const updateStatus = async (id, status) => {
   return updated;
 };
 
+const getPackageHistory = async (user_id) => {
+  return db('package_shipments')
+    .select('*')
+    .where('user_id', user_id)
+    .orderBy('created_at', 'desc');
+};
+
 module.exports = {
   createShipment,
   findByWaybill,
-  updateStatus
+  updateStatus,
+  getPackageHistory
 };

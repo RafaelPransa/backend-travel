@@ -67,7 +67,26 @@ const getDriverManifest = async (req, res) => {
     console.error('Error getDriverManifest:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Gagal mengambil manifest penumpang'
+      message: 'Gagal mengambil data manifest penumpang'
+    });
+  }
+};
+
+const getTravelHistory = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const history = await TravelModel.getTravelHistory(user_id);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Berhasil mengambil riwayat pemesanan travel',
+      data: history
+    });
+  } catch (error) {
+    console.error('Error getTravelHistory:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil riwayat pemesanan travel'
     });
   }
 };
@@ -75,5 +94,6 @@ const getDriverManifest = async (req, res) => {
 module.exports = {
   getSchedules,
   createBooking,
-  getDriverManifest
+  getDriverManifest,
+  getTravelHistory
 };

@@ -88,8 +88,28 @@ const updatePackageStatus = async (req, res) => {
   }
 };
 
+const getPackageHistory = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const history = await PackageModel.getPackageHistory(user_id);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Berhasil mengambil riwayat pengiriman paket',
+      data: history
+    });
+  } catch (error) {
+    console.error('Error getPackageHistory:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil riwayat pengiriman paket'
+    });
+  }
+};
+
 module.exports = {
   createShipment,
   trackPackage,
-  updatePackageStatus
+  updatePackageStatus,
+  getPackageHistory
 };

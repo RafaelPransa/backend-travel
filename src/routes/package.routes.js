@@ -13,4 +13,7 @@ router.get('/track/:waybill_number', packageController.trackPackage);
 // Driver & Super Admin: Update status paket
 router.put('/shipments/:id/status', authenticate, authorize('driver', 'super_admin'), validate(packageStatusSchema), packageController.updatePackageStatus);
 
+// Customer: Melihat riwayat pengiriman paket
+router.get('/history', authenticate, authorize('customer'), packageController.getPackageHistory);
+
 module.exports = router;

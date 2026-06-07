@@ -87,9 +87,29 @@ const getManifest = async (schedule_id) => {
     .orderBy('travel_bookings.seat_number', 'asc');
 };
 
+// Mengambil riwayat tiket user
+const getTravelHistory = async (user_id) => {
+  return db('travel_bookings')
+    .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+    .join('routes', 'schedules.route_id', 'routes.id')
+    .select(
+      'travel_bookings.id as booking_id',
+      'travel_bookings.seat_number',
+      'travel_bookings.booking_status',
+      'travel_bookings.created_at',
+      'routes.origin',
+      'routes.destination',
+      'schedules.departure_time',
+      'schedules.status as schedule_status'
+    )
+    .where('travel_bookings.user_id', user_id)
+    .orderBy('travel_bookings.created_at', 'desc');
+};
+
 module.exports = {
   getSchedules,
   checkSeatAvailability,
   createBooking,
-  getManifest
+  getManifest,
+  getTravelHistory
 };

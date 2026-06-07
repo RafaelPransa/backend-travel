@@ -13,4 +13,7 @@ router.post('/bookings', authenticate, authorize('customer'), validate(travelBoo
 // Driver & Super Admin: Melihat manifest penumpang (paid & prepaid)
 router.get('/manifest/:schedule_id', authenticate, authorize('driver', 'super_admin'), travelController.getDriverManifest);
 
+// Customer: Melihat riwayat pemesanan
+router.get('/history', authenticate, authorize('customer'), travelController.getTravelHistory);
+
 module.exports = router;
