@@ -3,6 +3,9 @@ const db = require('../config/db');
 // Daftar tabel yang diizinkan untuk operasi dinamis (Whitelist Anti SQL Injection)
 const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations'];
 
+// Kolom sensitif yang TIDAK BOLEH dikembalikan ke client
+const SENSITIVE_COLUMNS = ['password'];
+
 /**
  * Memvalidasi bahwa nama tabel termasuk dalam daftar yang diizinkan.
  * @param {string} table - Nama tabel yang akan divalidasi.
@@ -14,26 +17,49 @@ const validateTable = (table) => {
   }
 };
 
+/**
+ * Menghapus kolom sensitif dari hasil query sebelum dikembalikan ke client.
+ * @param {Object|Array} data - Data hasil query.
+ * @returns {Object|Array} Data yang sudah disaring.
+ */
+const sanitizeOutput = (data) => {
+  if (Array.isArray(data)) {
+    return data.map((record) => {
+      const sanitized = { ...record };
+      SENSITIVE_COLUMNS.forEach((col) => delete sanitized[col]);
+      return sanitized;
+    });
+  }
+  if (data && typeof data === 'object') {
+    const sanitized = { ...data };
+    SENSITIVE_COLUMNS.forEach((col) => delete sanitized[col]);
+    return sanitized;
+  }
+  return data;
+};
+
 const getTableData = async (table) => {
   validateTable(table);
-  return db(table).select('*').orderBy('created_at', 'desc');
+  const records = await db(table).select('*').orderBy('created_at', 'desc');
+  return sanitizeOutput(records);
 };
 
 const getById = async (table, id) => {
   validateTable(table);
-  return db(table).where({ id }).first();
+  const record = await db(table).where({ id }).first();
+  return sanitizeOutput(record);
 };
 
 const createRecord = async (table, data) => {
   validateTable(table);
   const [record] = await db(table).insert(data).returning('*');
-  return record;
+  return sanitizeOutput(record);
 };
 
 const updateRecord = async (table, id, data) => {
   validateTable(table);
   const [record] = await db(table).where({ id }).update(data).returning('*');
-  return record;
+  return sanitizeOutput(record);
 };
 
 const deleteRecord = async (table, id) => {
