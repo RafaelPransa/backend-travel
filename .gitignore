@@ -115,3 +115,5 @@ public/uploads/
 *.sln
 *.sw?
 
+# System Prompt
+SYSTEM_PROMPT.md
