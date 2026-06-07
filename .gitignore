@@ -123,3 +123,8 @@ schema.dbml
 
 # PRD
 PRD.md
+
+# agents supabase
+.agents/
+skills-lock.json
+
