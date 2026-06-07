@@ -102,8 +102,43 @@ const verifyCharterPayment = async (req, res) => {
   }
 };
 
+const uploadPaymentProof = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const charter_id = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({ status: 'error', message: 'File bukti pembayaran tidak ditemukan' });
+    }
+
+    const file_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+
+    const updatedCharter = await CharterModel.uploadPaymentProof(charter_id, user_id, file_url);
+
+    if (!updatedCharter) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pengajuan charter tidak ditemukan, bukan milik Anda, atau sudah diproses/lunas'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Bukti pembayaran charter berhasil diunggah. Menunggu verifikasi dari Super Admin.',
+      data: updatedCharter
+    });
+  } catch (error) {
+    console.error('Error uploadPaymentProof charter:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengunggah bukti pembayaran charter'
+    });
+  }
+};
+
 module.exports = {
   requestCharter,
   getCharterHistory,
-  verifyCharterPayment
+  verifyCharterPayment,
+  uploadPaymentProof
 };

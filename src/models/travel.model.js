@@ -106,10 +106,25 @@ const getTravelHistory = async (user_id) => {
     .orderBy('travel_bookings.created_at', 'desc');
 };
 
+// Mengunggah bukti pembayaran tiket reguler
+const uploadPaymentProof = async (booking_id, user_id, file_url) => {
+  const [updated] = await db('travel_bookings')
+    .where({ id: booking_id, user_id })
+    .whereIn('booking_status', ['pending', 'locked']) // Hanya bisa di-upload jika masih pending atau re-upload saat locked
+    .update({
+      payment_proof_url: file_url,
+      booking_status: 'locked' // Mengunci kursi dari cron job dan menunggu verifikasi admin
+    })
+    .returning('*');
+  
+  return updated;
+};
+
 module.exports = {
   getSchedules,
   checkSeatAvailability,
   createBooking,
   getManifest,
-  getTravelHistory
+  getTravelHistory,
+  uploadPaymentProof
 };

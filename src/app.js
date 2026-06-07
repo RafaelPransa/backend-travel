@@ -11,6 +11,7 @@ const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
+const path = require('path');
 
 const app = express();
 
@@ -18,6 +19,10 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json()); // Parsing application/json
+
+// Menyajikan file statis (Uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 app.use(express.urlencoded({ extended: true })); // Parsing application/x-www-form-urlencoded
 
 // ----------------------------------------------------

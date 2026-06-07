@@ -35,9 +35,23 @@ const getById = async (id) => {
   return db('charter_bookings').where({ id }).first();
 };
 
+// Mengunggah bukti pembayaran charter
+const uploadPaymentProof = async (charter_id, user_id, file_url) => {
+  const [updated] = await db('charter_bookings')
+    .where({ id: charter_id, user_id })
+    .where('status', 'pending')
+    .update({
+      payment_proof_url: file_url
+    })
+    .returning('*');
+  
+  return updated;
+};
+
 module.exports = {
   createRequest,
   getHistory,
   updateStatus,
-  getById
+  getById,
+  uploadPaymentProof
 };

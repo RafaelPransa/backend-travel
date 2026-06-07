@@ -82,10 +82,48 @@ const assignSchedule = async (req, res) => {
   }
 };
 
+const getTravelBookings = async (req, res) => {
+  try {
+    const bookings = await MasterDataModel.getTravelBookings();
+    return res.status(200).json({ status: 'success', data: bookings });
+  } catch (error) {
+    console.error('Error getTravelBookings:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengambil data pemesanan travel' });
+  }
+};
+
+const verifyTravelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await MasterDataModel.verifyTravelBooking(id);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau pelanggan belum mengunggah bukti pembayaran'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Pembayaran tiket travel berhasil diverifikasi',
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error verifyTravelBooking:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memverifikasi pembayaran tiket travel'
+    });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
   updateRecord,
   deleteRecord,
-  assignSchedule
+  assignSchedule,
+  getTravelBookings,
+  verifyTravelBooking
 };

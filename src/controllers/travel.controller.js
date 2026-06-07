@@ -91,9 +91,45 @@ const getTravelHistory = async (req, res) => {
   }
 };
 
+const uploadPaymentProof = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const booking_id = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({ status: 'error', message: 'File bukti pembayaran tidak ditemukan' });
+    }
+
+    // URL file publik
+    const file_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+
+    const updatedBooking = await TravelModel.uploadPaymentProof(booking_id, user_id, file_url);
+
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan, bukan milik Anda, atau tiket sudah kadaluarsa/lunas'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Bukti pembayaran berhasil diunggah. Menunggu verifikasi dari Super Admin.',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error uploadPaymentProof:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengunggah bukti pembayaran'
+    });
+  }
+};
+
 module.exports = {
   getSchedules,
   createBooking,
   getDriverManifest,
-  getTravelHistory
+  getTravelHistory,
+  uploadPaymentProof
 };

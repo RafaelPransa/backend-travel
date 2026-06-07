@@ -31,4 +31,8 @@ crudRoute('/destinations', 'destinations', adminValidationSchemas.destination);
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
 
+// Fitur Spesifik: Verifikasi Tiket Travel Reguler
+router.get('/travel-bookings', masterController.getTravelBookings);
+router.put('/travel-bookings/:id/verify', masterController.verifyTravelBooking);
+
 module.exports = router;
