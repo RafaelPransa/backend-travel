@@ -102,3 +102,16 @@ public
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# User uploads (Bukti pembayaran / file dinamis)
+public/uploads/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
