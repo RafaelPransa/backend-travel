@@ -1,6 +1,39 @@
 const MasterDataModel = require('../models/masterData.model');
 const bcrypt = require('bcryptjs');
 
+// Helper untuk validasi hari operasional rute travel regular
+const validateScheduleDay = async (routeId, departureTime) => {
+  const route = await MasterDataModel.getById('routes', routeId);
+  if (!route) {
+    throw new Error('Rute tidak ditemukan');
+  }
+
+  const depDate = new Date(departureTime);
+  if (isNaN(depDate.getTime())) {
+    throw new Error('Format waktu keberangkatan tidak valid');
+  }
+
+  // Dapatkan nama hari lokal dengan zona waktu Jakarta
+  const localDay = depDate.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long' }).toLowerCase();
+
+  const origin = route.origin.toLowerCase();
+  const dest = route.destination.toLowerCase();
+
+  if (origin === 'jakarta' && dest === 'panawangan') {
+    // Jakarta -> Panawangan: Senin, Rabu, Minggu
+    const allowed = ['senin', 'rabu', 'minggu'];
+    if (!allowed.includes(localDay)) {
+      throw new Error('Jadwal keberangkatan Jakarta ke Panawangan hanya diperbolehkan pada hari Senin, Rabu, dan Minggu');
+    }
+  } else if (origin === 'panawangan' && dest === 'jakarta') {
+    // Panawangan -> Jakarta: Selasa, Kamis, Jumat
+    const allowed = ['selasa', 'kamis', 'jumat'];
+    if (!allowed.includes(localDay)) {
+      throw new Error('Jadwal keberangkatan Panawangan ke Jakarta hanya diperbolehkan pada hari Selasa, Kamis, dan Jumat');
+    }
+  }
+};
+
 // Generic CRUD handlers
 const getRecords = (table) => async (req, res) => {
   try {
@@ -23,6 +56,15 @@ const createRecord = (table) => async (req, res) => {
       data.password = await bcrypt.hash(data.password, salt);
     }
 
+    // Validasi hari keberangkatan rute travel
+    if (table === 'schedules') {
+      try {
+        await validateScheduleDay(data.route_id, data.departure_time);
+      } catch (err) {
+        return res.status(400).json({ status: 'error', message: err.message });
+      }
+    }
+
     const newRecord = await MasterDataModel.createRecord(table, data);
     return res.status(201).json({ status: 'success', message: 'Data berhasil ditambahkan', data: newRecord });
   } catch (error) {
@@ -40,6 +82,22 @@ const updateRecord = (table) => async (req, res) => {
     if (table === 'users' && data.password) {
       const salt = await bcrypt.genSalt(10);
       data.password = await bcrypt.hash(data.password, salt);
+    }
+
+    // Validasi hari keberangkatan rute travel
+    if (table === 'schedules') {
+      const current = await MasterDataModel.getById('schedules', id);
+      if (current) {
+        const routeId = data.route_id || current.route_id;
+        const depTime = data.departure_time || current.departure_time;
+        if (routeId && depTime) {
+          try {
+            await validateScheduleDay(routeId, depTime);
+          } catch (err) {
+            return res.status(400).json({ status: 'error', message: err.message });
+          }
+        }
+      }
     }
 
     const updated = await MasterDataModel.updateRecord(table, id, data);

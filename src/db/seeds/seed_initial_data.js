@@ -58,13 +58,13 @@ exports.seed = async function(knex) {
   // 5. Masukkan Data Routes
   await knex('routes').insert([
     {
-      origin: 'Ciamis',
+      origin: 'Panawangan',
       destination: 'Jakarta',
       base_price: 250000
     },
     {
       origin: 'Jakarta',
-      destination: 'Ciamis',
+      destination: 'Panawangan',
       base_price: 250000
     }
   ]);
