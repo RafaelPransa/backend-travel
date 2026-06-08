@@ -692,7 +692,7 @@ Ganti kata kunci `:resource` pada URL `/api/admin/master/:resource` dengan salah
     - `email` (String format email)
     - `password` (String, min 6, opsional - akan di-hash otomatis di database jika diisi)
     - `phone_number` (String, min 10)
-    - `role` (Enum: `"customer"`, `"driver"`, `"super_admin"`)
+    - `role` (Enum: `"customer"`, `"driver"`, `"super_admin"`, `"mechanic"`)
   * **fleets:**
     - `plate_number` (String, min 1)
     - `car_type` (String, min 1)
@@ -870,7 +870,129 @@ Melakukan verifikasi/persetujuan atas pembayaran tiket regular. Mengubah status 
 
 ---
 
-## 📂 9. Struktur Standard Error Responses
+## 📂 9. Mechanic Service (Bengkel & Teknisi)
+
+Endpoint khusus untuk peran `mechanic` (mekanik/teknisi) dan `super_admin` untuk memantau kelayakan armada, mengubah status perbaikan, dan mencatat log servis kendaraan (yang otomatis memicu pencatatan biaya pengeluaran di sistem keuangan).
+
+### 9.1 Get Fleets (Daftar Armada)
+* **Method & URL Route:** `GET /api/mechanic/fleets`
+* **Akses:** Bearer Token JWT (Role: `mechanic`, `super_admin`)
+* **Contoh Response Success (200 OK):**
+  ```json
+  {
+    "status": "success",
+    "message": "Berhasil mengambil daftar armada",
+    "data": [
+      {
+        "id": "f76b312b-db7b-4ac5-9a06-3e713c041773",
+        "plate_number": "Z 1111 TA",
+        "car_type": "Luxio",
+        "seat_capacity": 6,
+        "status": "active",
+        "created_at": "2026-06-08T12:56:34.000Z"
+      }
+    ]
+  }
+  ```
+
+### 9.2 Update Fleet Status (Ubah Status Kelaikan Armada)
+Mengubah status armada apakah siap jalan (`active`) atau sedang dalam perbaikan (`maintenance`). Armada yang berstatus `maintenance` tidak akan bisa digunakan/dijadwalkan di sistem.
+* **Method & URL Route:** `PUT /api/mechanic/fleets/:id/status`
+* **Akses:** Bearer Token JWT (Role: `mechanic`, `super_admin`)
+* **URL Params:** `:id` adalah Fleet ID (UUID).
+* **Validasi Request Body (JSON):**
+  | Field | Tipe | Wajib | Keterangan |
+  | :--- | :--- | :--- | :--- |
+  | `status` | String | Ya | Hanya menerima: `"active"` atau `"maintenance"`. |
+
+* **Contoh Request Body:**
+  ```json
+  {
+    "status": "maintenance"
+  }
+  ```
+* **Contoh Response Success (200 OK):**
+  ```json
+  {
+    "status": "success",
+    "message": "Status armada berhasil diperbarui menjadi 'maintenance'",
+    "data": {
+      "id": "f76b312b-db7b-4ac5-9a06-3e713c041773",
+      "plate_number": "Z 1111 TA",
+      "car_type": "Luxio",
+      "seat_capacity": 6,
+      "status": "maintenance",
+      "created_at": "2026-06-08T12:56:34.000Z"
+    }
+  }
+  ```
+
+### 9.3 Get Maintenance Logs (Daftar Histori Servis)
+Melihat seluruh riwayat perbaikan dan servis armada.
+* **Method & URL Route:** `GET /api/mechanic/maintenance-logs`
+* **Akses:** Bearer Token JWT (Role: `mechanic`, `super_admin`)
+* **Contoh Response Success (200 OK):**
+  ```json
+  {
+    "status": "success",
+    "message": "Berhasil mengambil daftar histori perawatan kendaraan",
+    "data": [
+      {
+        "id": "log-uuid-1",
+        "service_date": "2026-06-08",
+        "description": "Ganti kampas rem depan dan oli mesin",
+        "cost": "550000.00",
+        "created_at": "2026-06-08T12:56:34.000Z",
+        "plate_number": "Z 1111 TA",
+        "car_type": "Luxio",
+        "mechanic_name": "Imin"
+      }
+    ]
+  }
+  ```
+
+### 9.4 Create Maintenance Log (Tambah Histori Servis)
+Mencatat log perbaikan/servis baru. Proses ini berjalan dalam **Database Transaction** sehingga data log tersimpan dan biaya pengeluaran (`cashflows`) otomatis tercatat sebagai pengeluaran operasional dengan kategori `'service'`.
+* **Method & URL Route:** `POST /api/mechanic/maintenance-logs`
+* **Akses:** Bearer Token JWT (Role: `mechanic`)
+* **Validasi Request Body (JSON):**
+  | Field | Tipe | Wajib | Keterangan |
+  | :--- | :--- | :--- | :--- |
+  | `fleet_id` | String (UUID) | Ya | ID armada mobil yang valid. |
+  | `service_date` | String | Ya | Tanggal servis format YYYY-MM-DD. |
+  | `description` | String | Ya | Detail servis/kerusakan/tindakan (min. 3 karakter). |
+  | `cost` | Number | Ya | Total biaya servis (tidak boleh negatif). |
+
+* **Contoh Request Body:**
+  ```json
+  {
+    "fleet_id": "f76b312b-db7b-4ac5-9a06-3e713c041773",
+    "service_date": "2026-06-08",
+    "description": "Ganti kampas rem depan dan oli mesin",
+    "cost": 550000
+  }
+  ```
+* **Contoh Response Success (201 Created):**
+  ```json
+  {
+    "status": "success",
+    "message": "Berhasil menambahkan histori perawatan kendaraan dan mencatat pengeluaran",
+    "data": {
+      "id": "log-uuid-1",
+      "fleet_id": "f76b312b-db7b-4ac5-9a06-3e713c041773",
+      "mechanic_id": "mechanic-uuid-999",
+      "service_date": "2026-06-08T00:00:00.000Z",
+      "description": "Ganti kampas rem depan dan oli mesin",
+      "cost": 550000,
+      "created_at": "2026-06-08T12:56:34.000Z",
+      "updated_at": "2026-06-08T12:56:34.000Z"
+    }
+  }
+  ```
+
+---
+
+## 📂 10. Struktur Standard Error Responses
 
 Backend mengembalikan format error standar untuk mempermudah penanganan error (*error handling*) di sisi frontend.
 
