@@ -12,6 +12,7 @@ const packageRoutes = require('./routes/package.routes');
 const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
+const mechanicRoutes = require('./routes/mechanic.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
 
 const app = express();
@@ -98,6 +99,9 @@ app.use('/api/admin/master', globalLimiter, masterDataRoutes);
 
 // Driver Routes
 app.use('/api/driver', globalLimiter, driverRoutes);
+
+// Mechanic Routes
+app.use('/api/mechanic', globalLimiter, mechanicRoutes);
 
 // ============================================================
 // GLOBAL ERROR HANDLER

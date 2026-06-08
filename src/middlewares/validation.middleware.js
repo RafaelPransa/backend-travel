@@ -71,7 +71,7 @@ const adminValidationSchemas = {
     email: z.string().email(),
     password: z.string().min(6).optional(),
     phone_number: z.string().min(10),
-    role: z.enum(['customer', 'driver', 'super_admin'])
+    role: z.enum(['customer', 'driver', 'super_admin', 'mechanic'])
   }),
   banner: z.object({
     title: z.string().min(1),
@@ -94,6 +94,19 @@ const adminValidationSchemas = {
 const driverValidationSchemas = {
   scheduleStatus: z.object({
     status: z.enum(['scheduled', 'board', 'driving', 'completed', 'cancelled'], { errorMap: () => ({ message: "Status perjalanan tidak valid" }) })
+  })
+};
+
+// --- Skema Validasi Mekanik ---
+const mechanicValidationSchemas = {
+  fleetStatus: z.object({
+    status: z.enum(['active', 'maintenance'], { errorMap: () => ({ message: "Status armada tidak valid" }) })
+  }),
+  maintenanceLog: z.object({
+    fleet_id: z.string().uuid('Format fleet_id tidak valid'),
+    service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format service_date harus YYYY-MM-DD'),
+    description: z.string().min(3, 'Deskripsi minimal 3 karakter'),
+    cost: z.number().nonnegative('Biaya tidak boleh negatif')
   })
 };
 
@@ -124,5 +137,6 @@ module.exports = {
   packageStatusSchema,
   adminValidationSchemas,
   driverValidationSchemas,
+  mechanicValidationSchemas,
   validate
 };
