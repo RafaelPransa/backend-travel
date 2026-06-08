@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 // Import Routes
 const authRoutes = require('./routes/auth.routes');
@@ -84,6 +86,15 @@ app.get('/', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// Swagger Documentation Route (Dengan CSP khusus agar Swagger UI dimuat dengan aman)
+app.use('/api-docs', (req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: validator.swagger.io; connect-src 'self';"
+  );
+  next();
+}, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Auth Routes (Dengan rate limiter khusus anti brute-force)
 app.use('/api/auth', authLimiter, authRoutes);

@@ -131,4 +131,4 @@ Server akan aktif dan berjalan di `http://localhost:5000` (atau port yang didefi
 ---
 
 ## 📚 Dokumentasi API
-Daftar seluruh endpoint REST API (Auth, User Management, Travel, Charter/Booking, Courier, Mechanic) terdokumentasi lengkap pada file [api_documentation.md](file:///d:/Tugas%20Kuliah/Semester%206/Kerja%20Praktik/Project%20Website%20Kerja%20Praktik/backend-kerjapraktik/api_documentation.md). Anda dapat langsung menyalin / mengimpor isi file tersebut ke dalam **Postman Collection** Anda.
+Daftar seluruh endpoint REST API (Auth, User Management, Travel, Charter/Booking, Courier, Mechanic) terdokumentasi lengkap pada file api_documentation.md. Anda dapat langsung menyalin / mengimpor isi file tersebut ke dalam **Postman Collection** Anda.
