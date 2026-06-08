@@ -67,7 +67,23 @@ Salin file konfigurasi bawaan dan sesuaikan kredensial koneksi *database* Anda.
 ```bash
 cp .env.example .env
 ```
-*Pastikan konfigurasi `DB_USER`, `DB_PASSWORD`, dan `DB_NAME` di file `.env` sudah benar terhubung ke PostgreSQL lokal Anda.*
+
+Untuk mempermudah perpindahan koneksi database antara **Localhost (Lokal)** dan **Supabase (Cloud)**, gunakan perintah berikut:
+
+* **Beralih ke Database Lokal (Localhost):**
+  ```bash
+  npm run env:local
+  ```
+  *(Pastikan kredensial di file `.env.local` sudah disesuaikan dengan DB lokal Anda)*
+
+* **Beralih ke Database Cloud (Supabase):**
+  ```bash
+  npm run env:supabase
+  ```
+  *(Pastikan kredensial di file `.env.supabase` sudah sesuai)*
+
+*(Catatan: Jika menggunakan Windows PowerShell dan mengalami kendala Execution Policy, Anda bisa menggunakan `cmd /c npm run env:local` atau `cmd /c npm run env:supabase`)*
+
 
 ### 5. Inisiasi Database (Migrasi & Seeder)
 Sistem ini memfasilitasi pembuatan tabel otomatis beserta data percobaan awal (1 Super Admin, 2 Supir, 2 Armada, dan 2 Rute).
