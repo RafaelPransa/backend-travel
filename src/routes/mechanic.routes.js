@@ -83,7 +83,7 @@ router.put('/fleets/:id/status', validate(mechanicValidationSchemas.fleetStatus)
  *       201:
  *         description: Catatan perawatan berhasil dibuat
  */
-router.get('/maintenance-logs', mechanicController.getMainMaintenanceLogs || mechanicController.getMaintenanceLogs);
+router.get('/maintenance-logs', mechanicController.getMaintenanceLogs);
 router.post('/maintenance-logs', validate(mechanicValidationSchemas.maintenanceLog), mechanicController.createMaintenanceLog);
 
 module.exports = router;

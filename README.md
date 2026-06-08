@@ -131,4 +131,16 @@ Server akan aktif dan berjalan di `http://localhost:5000` (atau port yang didefi
 ---
 
 ## 📚 Dokumentasi API
-Daftar seluruh endpoint REST API (Auth, User Management, Travel, Charter/Booking, Courier, Mechanic) terdokumentasi lengkap pada file api_documentation.md. Anda dapat langsung menyalin / mengimpor isi file tersebut ke dalam **Postman Collection** Anda.
+
+Sistem ini menyediakan dua jenis dokumentasi API untuk mempermudah integrasi:
+
+### 1. Swagger UI (Dokumentasi Interaktif - Direkomendasikan 🚀)
+Dokumentasi interaktif dapat diakses langsung melalui browser saat server backend berjalan. Anda dapat menguji seluruh endpoint secara langsung (*Try it out*) serta melakukan otentikasi JWT Bearer token secara *real-time*.
+
+* **URL Akses:** `http://localhost:5000/api-docs` *(sesuaikan port dengan variabel `PORT` di berkas `.env` Anda)*.
+* **Fitur Utama:**
+  * Skema parameter & body terintegrasi langsung dengan skema validasi **Zod** di backend (selalu singkron).
+  * Simulasi header otentikasi menggunakan tombol **Authorize**.
+
+### 2. Berkas Markdown (Statis)
+Daftar endpoint, parameter, dan contoh response mentah juga tercatat secara lengkap pada berkas `api_documentation.md` yang dapat diimpor secara manual ke aplikasi API client seperti Postman atau Bruno.

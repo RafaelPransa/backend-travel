@@ -63,7 +63,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Buat payload JWT
+    // Buat payload JWT (hanya data esensial agar token tetap ringan)
     const payload = {
       id: user.id,
       name: user.name,
@@ -80,7 +80,13 @@ const login = async (req, res) => {
       message: 'Login berhasil',
       data: {
         token,
-        user: payload
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone_number: user.phone_number
+        }
       }
     });
   } catch (error) {

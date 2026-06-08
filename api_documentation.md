@@ -7,7 +7,7 @@ Dokumentasi ini dirancang agar tim Frontend dapat dengan mudah mengintegrasikan 
 ## 🔒 1. Konfigurasi Global & Keamanan
 
 ### 1.1 Host & Base URL
-* **Local Development:** `http://localhost:3000` (atau port lain sesuai variabel lingkungan `PORT` di `.env`).
+* **Local Development:** `http://localhost:5000` (atau port lain sesuai variabel lingkungan `PORT` di `.env`).
 * **Header Default:** `Content-Type: application/json` (Kecuali untuk endpoint upload file).
 
 ### 1.2 Otentikasi (JWT Bearer Token)
@@ -19,7 +19,7 @@ Authorization: Bearer <your_jwt_token>
 
 ### 1.3 CORS Policy (Cross-Origin Resource Sharing)
 * **Allowed Origins:** Diatur melalui variabel lingkungan `ALLOWED_ORIGINS` (berupa string terpisah koma).
-* **Default Origins:** `http://localhost:3000`, `http://localhost:5173`.
+* **Default Origins:** `http://localhost:5000`, `http://localhost:5173`.
 * **Catatan:** Request tanpa origin (seperti dari Postman, curl, atau aplikasi mobile asli) diperbolehkan secara otomatis.
 
 ### 1.4 Rate Limiting (Pencegahan Bruteforce & DoS)
@@ -217,7 +217,7 @@ Mengunggah file gambar sebagai bukti transfer. Mengubah status pemesanan dari `p
       "seat_number": 3,
       "booking_status": "locked",
       "locked_until": "2026-06-07T17:04:13.000Z",
-      "payment_proof_url": "http://localhost:3000/uploads/payments/payment-1686123456789.png",
+      "payment_proof_url": "http://localhost:5000/uploads/payments/payment-1686123456789.png",
       "created_at": "2026-06-07T16:54:13.000Z"
     }
   }
@@ -342,7 +342,7 @@ Mengajukan sewa pariwisata. Sistem akan menghitung jumlah hari sewa secara **ink
       "return_date": "2026-07-03",
       "offered_price": 3600000,
       "status": "pending",
-      "payment_proof_url": "http://localhost:3000/uploads/payments/payment-1686123456789.png",
+      "payment_proof_url": "http://localhost:5000/uploads/payments/payment-1686123456789.png",
       "created_at": "2026-06-07T16:54:13.000Z"
     }
   }
@@ -833,7 +833,7 @@ Melihat data pesanan travel regular dari seluruh pelanggan lengkap dengan bukti 
         "id": "bfa89a31-7e82-4ad6-ac83-d922f30ea1d8",
         "seat_number": 3,
         "booking_status": "locked",
-        "payment_proof_url": "http://localhost:3000/uploads/payments/payment-1686123456789.png",
+        "payment_proof_url": "http://localhost:5000/uploads/payments/payment-1686123456789.png",
         "customer_name": "Rafael Pransa",
         "origin": "Ciamis",
         "destination": "Jakarta",

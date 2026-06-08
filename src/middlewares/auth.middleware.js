@@ -24,6 +24,29 @@ const authenticate = (req, res, next) => {
   }
 };
 
+/**
+ * Middleware opsional: Decode JWT jika ada, tapi TIDAK menolak request jika tidak ada token.
+ * Berguna untuk endpoint publik yang tetap ingin merekam user_id jika customer sudah login.
+ */
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next(); // Lanjutkan tanpa req.user
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+  } catch (error) {
+    // Token tidak valid, abaikan saja (tetap lanjutkan sebagai guest)
+  }
+
+  next();
+};
+
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
@@ -38,5 +61,6 @@ const authorize = (...allowedRoles) => {
 
 module.exports = {
   authenticate,
+  optionalAuth,
   authorize
 };

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const packageController = require('../controllers/package.controller');
 const { validate, packageShipmentSchema, packageStatusSchema } = require('../middlewares/validation.middleware');
-const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { authenticate, optionalAuth, authorize } = require('../middlewares/auth.middleware');
 
 /**
  * @openapi
@@ -56,7 +56,7 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
  *                       type: string
  *                       example: "received"
  */
-router.post('/shipments', validate(packageShipmentSchema), packageController.createShipment);
+router.post('/shipments', optionalAuth, validate(packageShipmentSchema), packageController.createShipment);
 
 /**
  * @openapi
