@@ -27,9 +27,11 @@ const app = express();
 app.use(helmet());
 
 // CORS: Hanya izinkan origin yang terdaftar (bukan wildcard *)
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const appPort = process.env.PORT || 5000;
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+  : ['http://localhost:3000', 'http://localhost:5173'])
+  .concat([`http://localhost:${appPort}`, `http://127.0.0.1:${appPort}`]);
 
 app.use(cors({
   origin: function (origin, callback) {
