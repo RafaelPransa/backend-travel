@@ -129,3 +129,6 @@ PRD.md
 .agents/
 skills-lock.json
 
+# database
+database.sql
+
