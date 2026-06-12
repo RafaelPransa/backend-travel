@@ -1,146 +1,144 @@
 # PT. Rini Trans Putri - Backend Application 🚀
 
-Sistem Backend berbasis RESTful API untuk mengelola layanan transportasi darat modern (Travel Regular, Penyewaan Pariwisata/Charter, dan Ekspedisi/Kurir). Aplikasi ini dirancang menggunakan arsitektur modular yang melayani 4 aktor utama dengan pembagian Role-Based Access Control (RBAC) yang ketat.
+Sistem Backend berbasis RESTful API untuk mengelola layanan transportasi darat modern (Travel Regular, Penyewaan Pariwisata/Charter, dan Ekspedisi/Kurir). Aplikasi ini dirancang untuk sistem akademik/kerja praktik, menyediakan layanan backend lengkap dari pemesanan hingga pencatatan laporan keuangan terotomatisasi.
 
 ---
 
 ## 👥 Aktor & Hak Akses (User Roles & ACL)
 
-| Role | Deskripsi Hak Akses |
-|---|---|
-| **Customer** | Mendaftar/login secara mandiri, melihat jadwal, memesan tiket travel regular (pilih kursi dengan *seat-locking*), mengajukan sewa pariwisata (kalkulasi tarif otomatis), membuat pesanan paket, melakukan tracking pesanan, dan melihat riwayat transaksi personal. |
-| **Driver (Supir)** | Login dengan akun yang dibuat oleh Admin, memantau daftar tugas perjalanan (*schedule assign*), melihat manifest penumpang dari kendaraan yang dibawa, serta mengubah status perjalanan secara real-time. |
-| **Mechanic (Teknisi)** | Login dengan akun yang dibuat oleh Admin, melihat daftar armada beserta statusnya, mengubah status armada (`active` <-> `maintenance`), serta mencatat log servis kendaraan (biaya servis otomatis tercatat sebagai pengeluaran keuangan). |
-| **Super Admin** | Mengelola seluruh *Master Data* (Armada, Rute, Jadwal, Driver, Customer, Mekanik, Banner Promosi, Destinasi Populer), memverifikasi bukti pembayaran sewa/travel, memasukkan pengeluaran operasional, serta melihat laporan keuangan (*cashflow* & keuntungan bersih secara otomatis). |
+Aplikasi diakses oleh 3 jenis role utama dengan *Role-Based Access Control* (RBAC) yang ketat:
+
+1. **Customer**: Mendaftar/login secara mandiri, melihat jadwal, memesan tiket travel regular (pilih kursi dengan *seat-locking*), mengajukan sewa pariwisata (kalkulasi tarif otomatis), membuat pesanan paket, dan melihat riwayat transaksi personal.
+2. **Driver (Supir)**: Login dengan akun yang dibuat oleh Admin. Memiliki wewenang untuk memantau daftar tugas perjalanan (*schedule assign*), melihat manifest penumpang, mengubah status perjalanan secara real-time, **melaporkan histori perawatan armada (maintenance)**, dan **mengajukan biaya operasional** harian (seperti bensin & tol).
+3. **Super Admin**: Mengelola seluruh *Master Data* (Armada, Rute, Jadwal, Driver, Customer, Banner Promosi, Destinasi Populer), memverifikasi bukti pembayaran dari pelanggan, menyetujui (approve) pengajuan biaya operasional supir, serta memonitor laporan keuangan (*cashflow* & *Net Profit* otomatis).
 
 ---
 
-## 🎯 Fitur Utama Layanan
+## 🛠️ Arsitektur & Struktur File
 
-### 1. Travel Rute Regular (Antar Kota)
-* **Ketentuan Keberangkatan Rute:**
-  * **Jakarta ke Panawangan:** Hari **Senin, Rabu, dan Minggu**.
-  * **Panawangan ke Jakarta:** Hari **Selasa, Kamis, dan Jumat**.
-* **Interactive Seat-Locking (10 Menit):** Ketika customer memilih nomor kursi pada jadwal keberangkatan tertentu dan masuk ke alur transaksi, kursi akan dikunci selama 10 menit oleh backend untuk mencegah pemesanan ganda (*double booking*) oleh pengguna lain.
-* **Driver Manifest:** Generator manifes penumpang otomatis per armada/jadwal untuk mempermudah operasional supir di lapangan.
+Aplikasi ini menggunakan pola arsitektur **Modular Component-based**. Memisahkan fungsi rute, validasi, logika bisnis, dan interaksi database ke dalam direktori terpisah.
 
-### 2. Penyewaan Pariwisata (Charter)
-* **Automated Price Calculation:** Tarif sewa dihitung secara otomatis oleh backend berdasarkan jenis kendaraan dan jumlah durasi hari sewa:
-  * **Armada Luxio:** Rp1.200.000 / hari
-  * **Armada Elf:** Rp1.500.000 / hari
-* **Alur Transaksi & Validasi:** Mengajukan sewa -> Kalkulasi harga -> Upload bukti transfer -> Verifikasi Super Admin -> Status menjadi `'paid'`. Terdapat validasi durasi sewa minimum 1 hari, dan penolakan otomatis jika tanggal pulang mendahului tanggal berangkat.
+### Struktur Folder
+```text
+backend-kerjapraktik/
+├── src/
+│   ├── config/         # Konfigurasi koneksi database & library pihak ketiga (Swagger, DB Knex)
+│   ├── controllers/    # Logika bisnis penanganan HTTP request & pengiriman response
+│   ├── db/             # Berisi file Migrations & Seeds dari Knex (Definisi Skema DB & Data Dummy)
+│   ├── middlewares/    # Middleware autentikasi (JWT), otorisasi role, validasi input, & Upload
+│   ├── models/         # Abstraksi query database relasional menggunakan Knex
+│   ├── routes/         # Definisi routing endpoint API ke controller masing-masing
+│   └── app.js          # Entry point utama inisiasi server Express
+├── uploads/            # Direktori penyimpanan file lokal (bukti payment, expenses, maintenance)
+├── package.json        # Manifest dependensi project
+└── README.md
+```
 
-### 3. Layanan Antar Paket (Courier)
-* **Resi Otomatis (Waybill):** Generator nomor resi acak berbasis kriptografi (non-incremental) untuk menjaga kerahasiaan volume transaksi perusahaan.
-* **Tracking Berbasis Status:** Pelacakan status paket secara publik tanpa harus login menggunakan nomor resi.
-
-### 4. Manajemen Perawatan & Bengkel (Mechanic Module)
-* **Fleet Status Control:** Mengubah status armada antara `active` (siap jalan) dan `maintenance` (sedang diservis).
-* **Automated Cashflow Integration:** Setiap penginputan log perawatan armada oleh teknisi (meliputi biaya servis, sparepart, dll.) akan otomatis tercatat sebagai pengeluaran keuangan (`cashflows` dengan kategori `'service'`) pada sistem keuangan Super Admin.
-
-### 5. Super Admin Dashboard & Laporan Keuangan
-* **Financial Bookkeeping:** Kalkulasi otomatis laporan keuangan (*Cashflow Summary*) untuk menghasilkan total pemasukan, pengeluaran (bensin, tol, servis), serta laba bersih (*Net Profit*) secara real-time.
-
----
-
-## 🛠️ Tech Stack & Arsitektur
-
-* **Runtime Environment:** Node.js
-* **Framework:** Express.js (RESTful API)
-* **Database:** PostgreSQL (Dioperasikan melalui Laragon atau Docker di lokal)
-* **Query Builder:** [Knex.js](https://knexjs.org/) (Menggunakan sistem Migrasi & Seeder untuk konsistensi skema)
-* **Skema & Validasi Input:** Zod (Memvalidasi seluruh request body secara ketat sebelum diproses oleh Controller)
-* **Keamanan (Security):**
-  * JSON Web Token (JWT) dengan skema Bearer Token untuk otorisasi endpoint.
-  * BcryptJS untuk hashing password pengguna.
-  * Helmet.js untuk pengamanan HTTP Headers.
-  * CORS (Cross-Origin Resource Sharing) yang terkonfigurasi.
-* **Struktur Folder (Modular):**
-  ```
-  src/
-  ├── config/         # Konfigurasi database & pihak ketiga
-  ├── controllers/    # Logika penanganan request & response
-  ├── db/             # Berisi file Migrations & Seeds dari Knex
-  ├── middlewares/    # Middleware autentikasi, otorisasi, & validasi
-  ├── models/         # Abstraksi query database (Knex)
-  └── routes/         # Definisi endpoint API berdasarkan modul
-  ```
+### Konvensi Penamaan File (Dot Case / Dot Notation)
+Aplikasi ini secara seragam mengadopsi format **Dot Notation** pada penamaan file, misalnya `user.controller.js`, `driver.model.js`, `auth.routes.js`.
+* **Kelebihan Dukungan OS:** Mengamankan proses *deployment*. Server Linux memiliki file system yang bersifat *case-sensitive*, sementara Windows tidak. Menghindari `CamelCase` (seperti `userController.js`) akan menghapus potensi error ketika di-deploy ke production server.
+* **Keterbacaan:** Memberikan pembatas visual yang jelas untuk mengidentifikasi peran sebuah file.
+* **Organisasi & Pencarian:** Sangat memudahkan pencarian global di teks editor karena kita dapat menfilter spesifik `*.controller.js`.
 
 ---
 
-## 🚀 Panduan Instalasi & Menjalankan Aplikasi
+## 🔌 API yang Tersedia (Available APIs)
 
-### 1. Prasyarat
-Pastikan mesin Anda telah terinstal:
-* **Node.js** (Versi 16 atau yang lebih baru)
-* **PostgreSQL** atau **Laragon** (Jika Anda menggunakan Windows)
+Aplikasi mengekspos puluhan RESTful API. Secara garis besar dikelompokkan ke dalam modul:
 
-### 2. Kloning Repositori
+* **Auth API** (`/api/auth`): Mengelola Pendaftaran (Register) dan Login token JWT.
+* **Master Data API** (`/api/master`): Endpoint CRUD untuk data inti rute, armada, jadwal, & destinasi.
+* **User API** (`/api/users`): Manajemen akun pengguna oleh Super Admin.
+* **Driver API** (`/api/driver`): Endpoint interaktif untuk supir melihat penugasan manifest penumpang, input log perbaikan bengkel, dan pengajuan bon operasional perjalanan.
+* **Travel API** (`/api/travel`): Pemesanan tiket antar kota dengan fungsionalitas kursi dan alamat *door-to-door*.
+* **Charter API** (`/api/charter`): Layanan sewa armada eksklusif dengan tarif terkomputasi harian.
+* **Package API** (`/api/package`): Pengiriman barang.
+* **Cashflow API** (`/api/cashflow`): Endpoint Dashboard akuntansi untuk menghitung *Gross Profit* dan *Net Profit* berdasarkan waktu (harian/mingguan/tahunan).
+
+> 💡 **Dokumentasi Spesifik & Interaktif**
+> Penjelasan *body request* JSON, status code, dan pengujian API secara langsung dapat dilakukan melalui **Swagger UI** yang telah tertanam di dalam aplikasi.
+
+---
+
+## 🗄️ Skema Database Utama
+
+Aplikasi menggunakan **PostgreSQL** yang dikelola melalui Knex Migrations. Berikut adalah tabel relasional yang digunakan:
+
+1. `users`: Menyimpan kredensial autentikasi (email, password yang di-hash) dan peran otoritas (*role*).
+2. `fleets`: Data inventori kendaraan perusahaan (tipe mobil, plat, kapasitas kursi, status mesin).
+3. `routes`: Jalur transportasi (titik awal & akhir) beserta tarif dasar.
+4. `schedules`: Penjadwalan harian yang merelasikan rute, kendaraan (`fleet_id`), dan pengemudi (`driver_id`).
+5. `travel_bookings`, `charter_bookings`, `package_bookings`: Menyimpan data pesanan spesifik yang merujuk pada jadwal atau pelanggan.
+6. `payments`: Memisahkan tabel mutasi status pembayaran dari tabel booking, digunakan untuk menyimpan status validasi dan nama file bukti transfer.
+7. `operational_expenses`: Mewadahi ajuan biaya harian dari supir per jadwal perjalanan (bensin, tol) yang memiliki status approval.
+8. `maintenance_logs`: Riwayat masuk bengkel dan penggantian suku cadang oleh supir/mekanik.
+9. `cashflows`: Tabel *ledger* (buku besar) pencatatan arus masuk-keluar uang. Diisi secara otomatis melalui sistem *trigger* aplikasi saat ada pemesanan yang disetujui atau klaim supir/mekanik dicairkan.
+
+---
+
+## 💻 Tech Stack & Library
+
+* **Runtime Environment:** Node.js (V8 Engine)
+* **Web Framework:** Express.js 5.x (API Web Server)
+* **Database:** PostgreSQL
+* **Query Builder:** Knex.js (Menyediakan fitur Query Builder, Database Migrations, & Seeders)
+
+**Library Pihak Ketiga Inti:**
+* **`zod`**: Skema validasi request body yang kuat untuk mencegah Payload API korup/DDoS sederhana.
+* **`bcryptjs`**: Keamanan kriptografi hashing untuk password pengguna di database.
+* **`jsonwebtoken` (JWT)**: Manajemen *stateless session* dan autorisasi Bearer token.
+* **`multer`**: Penanganan form multipart dan upload penyimpanan file foto (struk, slip gaji, dsb).
+* **`swagger-ui-express` & `swagger-jsdoc`**: Menghasilkan portal dokumentasi Swagger secara real-time berdasarkan kode sumber (JSDoc annotations).
+* **`cors` & `helmet`**: Modul mitigasi keamanan header HTTP dan akses origin browser (CORS).
+* **`dotenv`**: Variabel lingkungan konfigurasi.
+
+---
+
+## 🚀 Panduan Instalasi & Menjalankan Aplikasi (Localhost)
+
+Karena berstatus lingkungan pengembangan lokal (*Development*), silakan ikuti petunjuk berikut untuk menginisiasi aplikasi:
+
+### 1. Prasyarat Sistem
+* **Node.js** (Versi 16+)
+* **PostgreSQL** lokal yang sedang berjalan aktif (Bisa menggunakan PostgreSQL native, Docker, atau Laragon Windows).
+
+### 2. Kloning Repositori & Instalasi Dependensi
 ```bash
 git clone https://github.com/RafaelPransa/backend-travel.git
 cd backend-travel
-```
-
-### 3. Instalasi Dependensi
-```bash
 npm install
 ```
 
-### 4. Konfigurasi Environment & Database Switcher
-Buat duplikasi template `.env.example` ke file `.env`:
+### 3. Konfigurasi Environment (Lingkungan)
+Duplikasikan file template konfigurasi dan atur kredensial database Anda.
 ```bash
 cp .env.example .env
 ```
+Buka file `.env` dengan teks editor dan atur detail database lokal (PostgreSQL) Anda:
+```env
+PORT=5000
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_PASS=password_database_anda
+DB_NAME=rini_trans_db
+JWT_SECRET=rahasia_jwt_key_terserah_anda
+```
 
-Untuk mempermudah perpindahan koneksi database antara **Localhost (Lokal)** dan **Supabase (Cloud)**, gunakan perintah npm script berikut:
-
-* **Beralih ke Database Lokal (Localhost):**
-  ```bash
-  npm run env:local
-  ```
-  *(Pastikan kredensial di file `.env.local` sudah disesuaikan dengan database lokal Anda)*
-
-* **Beralih ke Database Cloud (Supabase):**
-  ```bash
-  npm run env:supabase
-  ```
-  *(Pastikan kredensial di file `.env.supabase` sudah terisi dengan benar)*
-
-> [!TIP]
-> **Khusus Pengguna Windows PowerShell:**
-> Jika PowerShell membatasi eksekusi skrip, jalankan dengan menambahkan awalan `cmd /c`:
-> * `cmd /c npm run env:local`
-> * `cmd /c npm run env:supabase`
-
-### 5. Inisiasi Database (Migrasi & Seeder)
-Sistem ini menggunakan Knex untuk membuat tabel secara otomatis beserta data percobaan awal (Super Admin, Supir, Mekanik, Rute, dan Armada).
+### 4. Setup Database (Migrasi & Seeder Knex)
+Pastikan Anda sudah membuat database bernama `rini_trans_db` di PostgreSQL Anda. Setelah itu, jalankan perintah di bawah ini untuk membuat seluruh kerangka tabel dan menyuntikkan data dummy awal (admin, armada, jadwal):
 ```bash
-# Jalankan migrasi untuk membuat tabel
 npx knex migrate:latest
-
-# Jalankan seeder untuk mengisi data awal (dummy data)
 npx knex seed:run
 ```
 
-### 6. Menjalankan Server (Development Mode)
+### 5. Menjalankan Server
+Gunakan perintah mode pengembang (memiliki *hot-reload* saat mengedit file):
 ```bash
 npm run dev
 ```
-Server akan aktif dan berjalan di `http://localhost:5000` (atau port yang didefinisikan dalam `.env`).
+Server backend akan mulai mendengarkan port. 
 
----
-
-## 📚 Dokumentasi API
-
-Sistem ini menyediakan dua jenis dokumentasi API untuk mempermudah integrasi:
-
-### 1. Swagger UI (Dokumentasi Interaktif - Direkomendasikan 🚀)
-Dokumentasi interaktif dapat diakses langsung melalui browser saat server backend berjalan. Anda dapat menguji seluruh endpoint secara langsung (*Try it out*) serta melakukan otentikasi JWT Bearer token secara *real-time*.
-
-* **URL Akses:** `http://localhost:5000/api-docs` *(sesuaikan port dengan variabel `PORT` di berkas `.env` Anda)*.
-* **Fitur Utama:**
-  * Skema parameter & body terintegrasi langsung dengan skema validasi **Zod** di backend (selalu singkron).
-  * Simulasi header otentikasi menggunakan tombol **Authorize**.
-
-### 2. Berkas Markdown (Statis)
-Daftar endpoint, parameter, dan contoh response mentah juga tercatat secara lengkap pada berkas `api_documentation.md` yang dapat diimpor secara manual ke aplikasi API client seperti Postman atau Bruno.
+### 6. Mengakses Halaman Swagger (Dokumentasi API)
+Buka browser Anda dan navigasikan ke alamat berikut untuk mengetes interaksi setiap API yang ada:
+👉 `http://localhost:5000/api-docs`
