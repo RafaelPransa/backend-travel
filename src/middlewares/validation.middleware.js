@@ -17,7 +17,9 @@ const loginSchema = z.object({
 // Schema untuk Booking Travel Regular
 const travelBookingSchema = z.object({
   schedule_id: z.string().uuid('Format schedule_id tidak valid'),
-  seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif')
+  seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
+  pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
+  dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)')
 });
 
 // Schema untuk Request Charter Pariwisata
@@ -26,6 +28,9 @@ const charterRequestSchema = z.object({
   destination: z.string().min(3, 'Destinasi wajib diisi'),
   departure_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format departure_date harus YYYY-MM-DD'),
   return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format return_date harus YYYY-MM-DD'),
+  pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
+  dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
+  with_driver: z.boolean().default(false),
   notes: z.string().optional()
 }).refine((data) => {
   return new Date(data.return_date) >= new Date(data.departure_date);
@@ -38,10 +43,12 @@ const charterRequestSchema = z.object({
 const packageShipmentSchema = z.object({
   sender_name: z.string().min(3, 'Nama pengirim wajib diisi'),
   sender_phone: z.string().min(10, 'Nomor HP pengirim tidak valid').max(15),
+  pickup_address: z.string().min(10, 'Alamat penjemputan paket wajib diisi lengkap (minimal 10 karakter)'),
   receiver_name: z.string().min(3, 'Nama penerima wajib diisi'),
   receiver_phone: z.string().min(10, 'Nomor HP penerima tidak valid').max(15),
-  receiver_address: z.string().min(10, 'Alamat penerima wajib diisi lengkap'),
-  package_description: z.string().min(3, 'Deskripsi paket wajib diisi')
+  receiver_address: z.string().min(10, 'Alamat penerima wajib diisi lengkap (minimal 10 karakter)'),
+  package_description: z.string().min(3, 'Deskripsi paket wajib diisi'),
+  seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1)
 });
 
 const packageStatusSchema = z.object({
@@ -71,7 +78,7 @@ const adminValidationSchemas = {
     email: z.string().email(),
     password: z.string().min(6).optional(),
     phone_number: z.string().min(10),
-    role: z.enum(['customer', 'driver', 'super_admin', 'mechanic'])
+    role: z.enum(['customer', 'driver', 'super_admin'])
   }),
   banner: z.object({
     title: z.string().min(1),
@@ -87,6 +94,9 @@ const adminValidationSchemas = {
     amount: z.number().positive(),
     category: z.string().min(1),
     description: z.string().optional()
+  }),
+  approveExpense: z.object({
+    status: z.enum(['approved', 'rejected'], { errorMap: () => ({ message: "Status persetujuan tidak valid" }) })
   })
 };
 
@@ -94,11 +104,7 @@ const adminValidationSchemas = {
 const driverValidationSchemas = {
   scheduleStatus: z.object({
     status: z.enum(['scheduled', 'board', 'driving', 'completed', 'cancelled'], { errorMap: () => ({ message: "Status perjalanan tidak valid" }) })
-  })
-};
-
-// --- Skema Validasi Mekanik ---
-const mechanicValidationSchemas = {
+  }),
   fleetStatus: z.object({
     status: z.enum(['active', 'maintenance'], { errorMap: () => ({ message: "Status armada tidak valid" }) })
   }),
@@ -106,7 +112,13 @@ const mechanicValidationSchemas = {
     fleet_id: z.string().uuid('Format fleet_id tidak valid'),
     service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format service_date harus YYYY-MM-DD'),
     description: z.string().min(3, 'Deskripsi minimal 3 karakter'),
-    cost: z.number().nonnegative('Biaya tidak boleh negatif')
+    cost: z.coerce.number().nonnegative('Biaya tidak boleh negatif')
+  }),
+  operationalExpense: z.object({
+    schedule_id: z.string().uuid('Format schedule_id tidak valid'),
+    amount: z.coerce.number().positive('Jumlah pengeluaran harus berupa angka positif'),
+    category: z.enum(['fuel', 'toll', 'parking', 'other'], { errorMap: () => ({ message: "Kategori pengeluaran tidak valid" }) }),
+    description: z.string().optional()
   })
 };
 
@@ -137,6 +149,5 @@ module.exports = {
   packageStatusSchema,
   adminValidationSchemas,
   driverValidationSchemas,
-  mechanicValidationSchemas,
   validate
 };

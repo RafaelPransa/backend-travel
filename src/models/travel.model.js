@@ -26,22 +26,32 @@ const getSchedules = async ({ date, origin, destination }) => {
   }
 
   const schedules = await query;
+  if (schedules.length === 0) {
+    return schedules;
+  }
 
-  // Hitung kursi tersedia untuk setiap jadwal
-  const enrichedSchedules = await Promise.all(schedules.map(async (schedule) => {
-    const bookedSeats = await db('travel_bookings')
-      .where('schedule_id', schedule.id)
-      .where(function() {
-        this.whereIn('booking_status', ['paid', 'prepaid'])
-            .orWhere('locked_until', '>', db.fn.now());
-      })
-      .count('id as total');
-      
-    const occupied = parseInt(bookedSeats[0].total, 10);
+  // Batch fetch booking counts to avoid N+1 query problem
+  const scheduleIds = schedules.map(s => s.id);
+  const bookings = await db('travel_bookings')
+    .whereIn('schedule_id', scheduleIds)
+    .where(function() {
+      this.whereIn('booking_status', ['paid', 'prepaid'])
+          .orWhere('locked_until', '>', db.fn.now());
+    })
+    .select('schedule_id')
+    .count('id as total')
+    .groupBy('schedule_id');
+
+  const bookingCounts = {};
+  bookings.forEach(b => {
+    bookingCounts[b.schedule_id] = parseInt(b.total, 10);
+  });
+
+  const enrichedSchedules = schedules.map(schedule => {
+    const occupied = bookingCounts[schedule.id] || 0;
     const available_seats = schedule.seat_capacity - occupied;
-
     return { ...schedule, available_seats };
-  }));
+  });
 
   return enrichedSchedules;
 };
@@ -66,6 +76,8 @@ const createBooking = async (data) => {
     user_id: data.user_id,
     schedule_id: data.schedule_id,
     seat_number: data.seat_number,
+    pickup_address: data.pickup_address,
+    dropoff_address: data.dropoff_address,
     booking_status: 'pending',
     locked_until: locked_until
   }).returning('*');
@@ -80,7 +92,9 @@ const getManifest = async (schedule_id) => {
       'travel_bookings.seat_number',
       'users.name',
       'users.phone_number',
-      'travel_bookings.booking_status'
+      'travel_bookings.booking_status',
+      'travel_bookings.pickup_address',
+      'travel_bookings.dropoff_address'
     )
     .where('travel_bookings.schedule_id', schedule_id)
     .whereIn('travel_bookings.booking_status', ['paid', 'prepaid'])
@@ -96,6 +110,8 @@ const getTravelHistory = async (user_id) => {
       'travel_bookings.id as booking_id',
       'travel_bookings.seat_number',
       'travel_bookings.booking_status',
+      'travel_bookings.pickup_address',
+      'travel_bookings.dropoff_address',
       'travel_bookings.created_at',
       'routes.origin',
       'routes.destination',

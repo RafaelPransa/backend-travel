@@ -37,7 +37,9 @@ const getAssignedSchedules = async (driver_id) => {
       'travel_bookings.seat_number',
       'users.name as passenger_name',
       'users.phone_number as passenger_phone',
-      'travel_bookings.booking_status'
+      'travel_bookings.booking_status',
+      'travel_bookings.pickup_address',
+      'travel_bookings.dropoff_address'
     )
     .whereIn('travel_bookings.schedule_id', scheduleIds)
     .whereIn('travel_bookings.booking_status', ['paid', 'prepaid'])
@@ -53,7 +55,9 @@ const getAssignedSchedules = async (driver_id) => {
       seat_number: passenger.seat_number,
       passenger_name: passenger.passenger_name,
       passenger_phone: passenger.passenger_phone,
-      booking_status: passenger.booking_status
+      booking_status: passenger.booking_status,
+      pickup_address: passenger.pickup_address,
+      dropoff_address: passenger.dropoff_address
     });
   }
 
@@ -73,7 +77,87 @@ const updateScheduleStatus = async (id, driver_id, status) => {
   return updated;
 };
 
+// ============================================================================
+// MIGRATED FLEET & MAINTENANCE METHODS (FROM MECHANIC)
+// ============================================================================
+
+const getFleets = async () => {
+  return db('fleets').select('*').orderBy('plate_number', 'asc');
+};
+
+const updateFleetStatus = async (id, status) => {
+  const [updated] = await db('fleets')
+    .where({ id })
+    .update({ status })
+    .returning('*');
+  return updated;
+};
+
+const getMaintenanceLogs = async () => {
+  return db('maintenance_logs')
+    .join('fleets', 'maintenance_logs.fleet_id', 'fleets.id')
+    .leftJoin('users', 'maintenance_logs.driver_id', 'users.id')
+    .select(
+      'maintenance_logs.id',
+      'maintenance_logs.service_date',
+      'maintenance_logs.description',
+      'maintenance_logs.cost',
+      'maintenance_logs.proof_image_url',
+      'maintenance_logs.created_at',
+      'fleets.plate_number',
+      'fleets.car_type',
+      'users.name as driver_name'
+    )
+    .orderBy('maintenance_logs.service_date', 'desc');
+};
+
+// Catat log servis. Menghindari duplikasi pencatatan cashflow dengan membiarkan trigger DB yang bekerja.
+const createMaintenanceLog = async (driverId, { fleet_id, service_date, description, cost, proof_image_url }) => {
+  const [log] = await db('maintenance_logs')
+    .insert({
+      fleet_id,
+      driver_id: driverId,
+      service_date,
+      description,
+      cost,
+      proof_image_url
+    })
+    .returning('*');
+  return log;
+};
+
+// ============================================================================
+// OPERATIONAL EXPENSES METHODS
+// ============================================================================
+
+const createOperationalExpense = async (data) => {
+  const [expense] = await db('operational_expenses')
+    .insert(data)
+    .returning('*');
+  return expense;
+};
+
+const getDriverExpenses = async (driver_id) => {
+  return db('operational_expenses')
+    .join('schedules', 'operational_expenses.schedule_id', 'schedules.id')
+    .join('routes', 'schedules.route_id', 'routes.id')
+    .select(
+      'operational_expenses.*',
+      'schedules.departure_time',
+      'routes.origin',
+      'routes.destination'
+    )
+    .where('operational_expenses.driver_id', driver_id)
+    .orderBy('operational_expenses.created_at', 'desc');
+};
+
 module.exports = {
   getAssignedSchedules,
-  updateScheduleStatus
+  updateScheduleStatus,
+  getFleets,
+  updateFleetStatus,
+  getMaintenanceLogs,
+  createMaintenanceLog,
+  createOperationalExpense,
+  getDriverExpenses
 };

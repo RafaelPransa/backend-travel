@@ -6,9 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "env:local": "node -e \"const fs = require('fs'); fs.copyFileSync('.env.local', '.env'); console.log('Switched to LOCAL database config!');\"",
-    "env:supabase": "node -e \"const fs = require('fs'); fs.copyFileSync('.env.supabase', '.env'); console.log('Switched to SUPABASE database config!');\""
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",

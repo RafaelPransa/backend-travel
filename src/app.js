@@ -2,7 +2,6 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 
@@ -14,7 +13,6 @@ const packageRoutes = require('./routes/package.routes');
 const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
-const mechanicRoutes = require('./routes/mechanic.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
 
 const app = express();
@@ -49,30 +47,6 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Rate Limiter Global: Maksimal 100 request per 15 menit per IP
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 menit
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    status: 'error',
-    message: 'Terlalu banyak permintaan dari IP ini. Silakan coba lagi setelah 15 menit.'
-  }
-});
-
-// Rate Limiter khusus Auth: Maksimal 10 percobaan login per 15 menit per IP
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    status: 'error',
-    message: 'Terlalu banyak percobaan login. Silakan coba lagi setelah 15 menit.'
-  }
-});
-
 // Menyajikan file statis (Uploads: Bukti pembayaran)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
@@ -98,23 +72,20 @@ app.use('/api-docs', (req, res, next) => {
   next();
 }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Auth Routes (Dengan rate limiter khusus anti brute-force)
-app.use('/api/auth', authLimiter, authRoutes);
+// Auth Routes
+app.use('/api/auth', authRoutes);
 
-// Service Routes (Dengan rate limiter global)
-app.use('/api/travel', globalLimiter, travelRoutes);
-app.use('/api/charter', globalLimiter, charterRoutes);
-app.use('/api/packages', globalLimiter, packageRoutes);
+// Service Routes
+app.use('/api/travel', travelRoutes);
+app.use('/api/charter', charterRoutes);
+app.use('/api/packages', packageRoutes);
 
 // Admin Routes
-app.use('/api/admin/cashflow', globalLimiter, cashflowRoutes);
-app.use('/api/admin/master', globalLimiter, masterDataRoutes);
+app.use('/api/admin/cashflow', cashflowRoutes);
+app.use('/api/admin/master', masterDataRoutes);
 
 // Driver Routes
-app.use('/api/driver', globalLimiter, driverRoutes);
-
-// Mechanic Routes
-app.use('/api/mechanic', globalLimiter, mechanicRoutes);
+app.use('/api/driver', driverRoutes);
 
 // ============================================================
 // GLOBAL ERROR HANDLER

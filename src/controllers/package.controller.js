@@ -1,24 +1,36 @@
-const crypto = require('crypto');
 const PackageModel = require('../models/package.model');
-
-// Helper untuk generate Resi
-const generateWaybill = () => {
-  const randomStr = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 karakter hex
-  return `RTP-${randomStr}`;
-};
 
 const createShipment = async (req, res) => {
   try {
-    const data = req.body;
+    const {
+      sender_name,
+      sender_phone,
+      pickup_address,
+      receiver_name,
+      receiver_phone,
+      receiver_address,
+      package_description,
+      seat_qty
+    } = req.body;
+
+    const data = {
+      sender_name,
+      sender_phone,
+      pickup_address,
+      receiver_name,
+      receiver_phone,
+      receiver_address,
+      package_description,
+      seat_qty: seat_qty || 1,
+      status: 'received'
+    };
     
     // Jika ada token yang valid dari customer, kita bisa ambil user_id dari req.user opsional
     if (req.user && req.user.id) {
       data.user_id = req.user.id;
     }
 
-    data.waybill_number = generateWaybill();
-    data.status = 'received';
-
+    // Nomor resi (waybill_number) akan digenerate otomatis oleh trigger database trg_generate_waybill
     const newShipment = await PackageModel.createShipment(data);
 
     return res.status(201).json({
@@ -49,6 +61,7 @@ const trackPackage = async (req, res) => {
 
     return res.status(200).json({
       status: 'success',
+      message: 'Berhasil melacak paket',
       data: shipment
     });
   } catch (error) {

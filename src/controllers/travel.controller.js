@@ -7,6 +7,7 @@ const getSchedules = async (req, res) => {
     
     return res.status(200).json({
       status: 'success',
+      message: 'Berhasil mengambil jadwal travel',
       data: schedules
     });
   } catch (error) {
@@ -20,7 +21,7 @@ const getSchedules = async (req, res) => {
 
 const createBooking = async (req, res) => {
   try {
-    const { schedule_id, seat_number } = req.body;
+    const { schedule_id, seat_number, pickup_address, dropoff_address } = req.body;
     const user_id = req.user.id;
 
     // Pastikan kursi tersedia
@@ -36,7 +37,9 @@ const createBooking = async (req, res) => {
     const newBooking = await TravelModel.createBooking({
       user_id,
       schedule_id,
-      seat_number
+      seat_number,
+      pickup_address,
+      dropoff_address
     });
 
     return res.status(201).json({
@@ -61,6 +64,7 @@ const getDriverManifest = async (req, res) => {
     
     return res.status(200).json({
       status: 'success',
+      message: 'Berhasil mengambil data manifest penumpang',
       data: manifest
     });
   } catch (error) {

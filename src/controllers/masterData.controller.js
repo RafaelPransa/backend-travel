@@ -26,10 +26,10 @@ const validateScheduleDay = async (routeId, departureTime) => {
       throw new Error('Jadwal keberangkatan Jakarta ke Panawangan hanya diperbolehkan pada hari Senin, Rabu, dan Minggu');
     }
   } else if (origin === 'panawangan' && dest === 'jakarta') {
-    // Panawangan -> Jakarta: Selasa, Kamis, Jumat
-    const allowed = ['selasa', 'kamis', 'jumat'];
+    // Panawangan -> Jakarta: Selasa, Kamis, Minggu
+    const allowed = ['selasa', 'kamis', 'minggu'];
     if (!allowed.includes(localDay)) {
-      throw new Error('Jadwal keberangkatan Panawangan ke Jakarta hanya diperbolehkan pada hari Selasa, Kamis, dan Jumat');
+      throw new Error('Jadwal keberangkatan Panawangan ke Jakarta hanya diperbolehkan pada hari Selasa, Kamis, dan Minggu');
     }
   }
 };
@@ -38,7 +38,7 @@ const validateScheduleDay = async (routeId, departureTime) => {
 const getRecords = (table) => async (req, res) => {
   try {
     const records = await MasterDataModel.getTableData(table);
-    return res.status(200).json({ status: 'success', data: records });
+    return res.status(200).json({ status: 'success', message: `Berhasil mengambil data dari tabel ${table}`, data: records });
   } catch (error) {
     console.error(`Error getRecords ${table}:`, error);
     return res.status(500).json({ status: 'error', message: 'Terjadi kesalahan server' });
@@ -145,7 +145,7 @@ const assignSchedule = async (req, res) => {
 const getTravelBookings = async (req, res) => {
   try {
     const bookings = await MasterDataModel.getTravelBookings();
-    return res.status(200).json({ status: 'success', data: bookings });
+    return res.status(200).json({ status: 'success', message: 'Berhasil mengambil antrean booking tiket travel', data: bookings });
   } catch (error) {
     console.error('Error getTravelBookings:', error);
     return res.status(500).json({ status: 'error', message: 'Gagal mengambil data pemesanan travel' });

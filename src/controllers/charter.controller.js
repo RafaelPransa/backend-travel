@@ -1,11 +1,5 @@
 const CharterModel = require('../models/charter.model');
 
-// Tarif resmi per hari (Konstanta, sesuai PRD.md)
-const TARIFF_PER_DAY = {
-  Luxio: 1200000,
-  Elf: 1500000
-};
-
 /**
  * Menghitung jumlah hari sewa (inklusif).
  * Contoh: Berangkat 1 Juli, Pulang 3 Juli = 3 hari (bukan 2).
@@ -23,25 +17,33 @@ const calculateDays = (start, end) => {
 
 const requestCharter = async (req, res) => {
   try {
-    const { car_type, destination, departure_date, return_date, notes } = req.body;
+    const { 
+      car_type, 
+      destination, 
+      departure_date, 
+      return_date, 
+      pickup_address, 
+      dropoff_address, 
+      with_driver, 
+      notes 
+    } = req.body;
     const user_id = req.user.id;
 
-    const days = calculateDays(departure_date, return_date);
-    
-    // Tarif sesuai armada (dari konstanta, bukan hardcode angka)
-    const tariffPerDay = TARIFF_PER_DAY[car_type];
-    const offered_price = days * tariffPerDay;
-
+    // Simpan ke database tanpa offered_price. Trigger calculate_charter_price akan mengisi otomatis.
     const newRequest = await CharterModel.createRequest({
       user_id,
       car_type,
       destination,
       departure_date,
       return_date,
+      pickup_address,
+      dropoff_address,
+      with_driver: with_driver || false,
       notes,
-      offered_price,
       status: 'pending' // Menunggu bukti bayar divalidasi
     });
+
+    const days = calculateDays(departure_date, return_date);
 
     return res.status(201).json({
       status: 'success',
@@ -70,6 +72,7 @@ const getCharterHistory = async (req, res) => {
 
     return res.status(200).json({
       status: 'success',
+      message: 'Berhasil mengambil riwayat charter',
       data: history
     });
 

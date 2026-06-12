@@ -2,11 +2,13 @@ const CashflowModel = require('../models/cashflow.model');
 
 const getCashflowSummary = async (req, res) => {
   try {
-    const summary = await CashflowModel.getSummary();
+    const { filter } = req.query; // 'weekly', 'monthly', 'yearly'
+    const summary = await CashflowModel.getSummary(filter);
     const netProfit = summary.totalIncome - summary.totalExpense;
 
     return res.status(200).json({
       status: 'success',
+      message: 'Berhasil mengambil ringkasan kas keuangan',
       data: {
         total_income: summary.totalIncome,
         total_expense: summary.totalExpense,
@@ -49,7 +51,62 @@ const addExpense = async (req, res) => {
   }
 };
 
+// ============================================================================
+// ADMIN OPERATIONAL EXPENSES APPROVAL SYSTEM
+// ============================================================================
+
+const getDriverExpenses = async (req, res) => {
+  try {
+    const { status } = req.query; // 'pending', 'approved', 'rejected'
+    const expenses = await CashflowModel.getExpenses(status);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Berhasil mengambil data pengeluaran operasional supir',
+      data: expenses
+    });
+  } catch (error) {
+    console.error('Error getDriverExpenses:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil data pengeluaran operasional supir'
+    });
+  }
+};
+
+const approveExpense = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'approved' atau 'rejected'
+
+    const updated = await CashflowModel.updateExpenseStatus(id, status);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Data pengeluaran operasional tidak ditemukan'
+      });
+    }
+
+    const actionText = status === 'approved' ? 'disetujui' : 'ditolak';
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Pengeluaran operasional supir berhasil ${actionText}`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error approveExpense:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status persetujuan pengeluaran operasional'
+    });
+  }
+};
+
 module.exports = {
   getCashflowSummary,
-  addExpense
+  addExpense,
+  getDriverExpenses,
+  approveExpense
 };

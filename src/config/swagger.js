@@ -31,10 +31,12 @@ const schemas = {
   
   // Driver Schemas
   DriverScheduleStatusSchema: toOpenApiSchema(validation.driverValidationSchemas?.scheduleStatus),
+  DriverFleetStatusSchema: toOpenApiSchema(validation.driverValidationSchemas?.fleetStatus),
+  DriverMaintenanceLogSchema: toOpenApiSchema(validation.driverValidationSchemas?.maintenanceLog),
+  DriverOperationalExpenseSchema: toOpenApiSchema(validation.driverValidationSchemas?.operationalExpense),
   
-  // Mechanic Schemas
-  MechanicFleetStatusSchema: toOpenApiSchema(validation.mechanicValidationSchemas?.fleetStatus),
-  MechanicMaintenanceLogSchema: toOpenApiSchema(validation.mechanicValidationSchemas?.maintenanceLog)
+  // Admin Schemas Extra
+  AdminApproveExpenseSchema: toOpenApiSchema(validation.adminValidationSchemas?.approveExpense)
 };
 
 const swaggerOptions = {
