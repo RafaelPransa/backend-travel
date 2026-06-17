@@ -25,7 +25,8 @@ const requestCharter = async (req, res) => {
       pickup_address, 
       dropoff_address, 
       with_driver, 
-      notes 
+      notes,
+      payment_method
     } = req.body;
     const user_id = req.user.id;
 
@@ -40,6 +41,7 @@ const requestCharter = async (req, res) => {
       dropoff_address,
       with_driver: with_driver || false,
       notes,
+      payment_method,
       status: 'pending' // Menunggu bukti bayar divalidasi
     });
 

@@ -21,7 +21,7 @@ const getSchedules = async (req, res) => {
 
 const createBooking = async (req, res) => {
   try {
-    const { schedule_id, seat_number, pickup_address, dropoff_address } = req.body;
+    const { schedule_id, seat_number, pickup_address, dropoff_address, payment_method } = req.body;
     const user_id = req.user.id;
 
     // Pastikan kursi tersedia
@@ -39,7 +39,8 @@ const createBooking = async (req, res) => {
       schedule_id,
       seat_number,
       pickup_address,
-      dropoff_address
+      dropoff_address,
+      payment_method
     });
 
     return res.status(201).json({
