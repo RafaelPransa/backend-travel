@@ -12,12 +12,15 @@ exports.up = async function(knex) {
   await knex.schema.createTable('maintenance_logs', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
     table.uuid('fleet_id').references('id').inTable('fleets').onDelete('CASCADE').notNullable();
-    table.uuid('mechanic_id').references('id').inTable('users').onDelete('SET NULL'); // Relasi ke users dengan role 'mechanic'
+    table.uuid('driver_id').references('id').inTable('users').onDelete('SET NULL'); // Driver yang melapor
     table.date('service_date').notNullable();
     table.text('description').notNullable();
     table.decimal('cost', 10, 2).notNullable().defaultTo(0.00);
+    table.string('proof_image_url', 255); // Kuitansi/bukti foto servis
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.fn.now());
+
+    table.check('cost >= 0');
   });
 };
 
