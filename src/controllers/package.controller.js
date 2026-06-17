@@ -10,6 +10,8 @@ const createShipment = async (req, res) => {
       receiver_phone,
       receiver_address,
       package_description,
+      weight,
+      dimension,
       seat_qty,
       payment_method
     } = req.body;
@@ -22,6 +24,8 @@ const createShipment = async (req, res) => {
       receiver_phone,
       receiver_address,
       package_description,
+      weight,
+      dimension,
       seat_qty: seat_qty || 1,
       payment_method,
       transaction_status: 'menunggu_konfirmasi',
@@ -36,9 +40,13 @@ const createShipment = async (req, res) => {
     // Nomor resi (waybill_number) akan digenerate otomatis oleh trigger database trg_generate_waybill
     const newShipment = await PackageModel.createShipment(data);
 
+    const message = newShipment.is_double_charge
+      ? 'Pengiriman paket berhasil dibuat. Paket terdeteksi melebihi kapasitas standar dan dikenakan tarif ganda (double charge).'
+      : 'Pengiriman paket berhasil dibuat';
+
     return res.status(201).json({
       status: 'success',
-      message: 'Pengiriman paket berhasil dibuat',
+      message,
       data: newShipment
     });
   } catch (error) {
