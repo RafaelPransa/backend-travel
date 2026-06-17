@@ -21,7 +21,8 @@ const travelBookingSchema = z.object({
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
   payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
-  baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional()
+  baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional(),
+  promo_id: z.string().uuid('Format promo_id tidak valid').optional()
 });
 
 // Schema untuk Request Charter Pariwisata
@@ -103,6 +104,15 @@ const adminValidationSchemas = {
   }),
   approveExpense: z.object({
     status: z.enum(['approved', 'rejected'], { errorMap: () => ({ message: "Status persetujuan tidak valid" }) })
+  }),
+  promotion: z.object({
+    tagline: z.string().min(1),
+    description: z.string().optional(),
+    image_url: z.string().url().optional().or(z.literal('')),
+    discount_percentage: z.number().min(0).max(100),
+    badge_label: z.string().min(1),
+    is_active: z.boolean().optional(),
+    promo_type: z.enum(['home', 'service']).optional()
   })
 };
 

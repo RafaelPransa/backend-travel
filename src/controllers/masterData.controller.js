@@ -129,9 +129,13 @@ const deleteRecord = (table) => async (req, res) => {
 const assignSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fleet_id, driver_id } = req.body;
+    const { fleet_id, driver_id, driver_2_id } = req.body;
     
-    const updated = await MasterDataModel.updateRecord('schedules', id, { fleet_id, driver_id });
+    const updated = await MasterDataModel.updateRecord('schedules', id, { 
+      fleet_id, 
+      driver_id, 
+      driver_2_id: driver_2_id || null 
+    });
     if (!updated) {
       return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
     }
@@ -178,6 +182,34 @@ const verifyTravelBooking = async (req, res) => {
   }
 };
 
+const updateTravelBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { booking_status, eta, price } = req.body;
+
+    const updated = await MasterDataModel.updateTravelBookingStatus(id, { booking_status, eta, price });
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Data pemesanan travel berhasil diperbarui',
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error updateTravelBookingStatus:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status pemesanan travel'
+    });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -185,5 +217,6 @@ module.exports = {
   deleteRecord,
   assignSchedule,
   getTravelBookings,
-  verifyTravelBooking
+  verifyTravelBooking,
+  updateTravelBookingStatus
 };

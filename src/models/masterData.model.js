@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // Daftar tabel yang diizinkan untuk operasi dinamis (Whitelist Anti SQL Injection)
-const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations'];
+const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations', 'promotions'];
 
 // Kolom sensitif yang TIDAK BOLEH dikembalikan ke client
 const SENSITIVE_COLUMNS = ['password'];
@@ -118,6 +118,39 @@ const verifyTravelBooking = async (booking_id) => {
   return updated;
 };
 
+const updateTravelBookingStatus = async (booking_id, { booking_status, eta, price }) => {
+  const booking = await db('travel_bookings').where('id', booking_id).first();
+  if (!booking) return null;
+
+  const updatePayload = {};
+  
+  if (booking_status) {
+    updatePayload.booking_status = booking_status;
+    
+    // Kelola seat locking duration
+    if (booking_status === 'menunggu_pembayaran') {
+      updatePayload.locked_until = new Date(Date.now() + 10 * 60000);
+    } else if (booking_status === 'selesai' || booking_status === 'ditolak' || booking_status === 'dibatalkan') {
+      updatePayload.locked_until = null;
+    }
+  }
+
+  if (eta !== undefined) {
+    updatePayload.eta = eta;
+  }
+
+  if (price !== undefined) {
+    updatePayload.price = price;
+  }
+
+  const [updated] = await db('travel_bookings')
+    .where('id', booking_id)
+    .update(updatePayload)
+    .returning('*');
+
+  return updated;
+};
+
 module.exports = {
   getTableData,
   getById,
@@ -125,5 +158,6 @@ module.exports = {
   updateRecord,
   deleteRecord,
   getTravelBookings,
-  verifyTravelBooking
+  verifyTravelBooking,
+  updateTravelBookingStatus
 };

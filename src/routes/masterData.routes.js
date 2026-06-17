@@ -490,6 +490,41 @@ router.use(authenticate, authorize('super_admin'));
  *     responses:
  *       200:
  *         description: Tiket travel berhasil diverifikasi (lunas)
+ * 
+ * /api/admin/master/travel-bookings/{id}/status:
+ *   put:
+ *     summary: Persetujuan, Penolakan, dan Update Data Tiket Travel (Super Admin)
+ *     tags:
+ *       - Admin Operational Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               booking_status:
+ *                 type: string
+ *                 enum: [menunggu_konfirmasi, menunggu_pembayaran, selesai, dibatalkan, ditolak]
+ *               eta:
+ *                 type: string
+ *                 example: "08:30"
+ *               price:
+ *                 type: number
+ *                 example: 200000
+ *     responses:
+ *       200:
+ *         description: Tiket travel berhasil diperbarui
  */
 
 // Helper untuk generate rute CRUD
@@ -512,12 +547,14 @@ crudRoute('/schedules', 'schedules', adminValidationSchemas.schedule);
 crudRoute('/users', 'users', adminValidationSchemas.user);
 crudRoute('/banners', 'banners', adminValidationSchemas.banner);
 crudRoute('/destinations', 'destinations', adminValidationSchemas.destination);
+crudRoute('/promotions', 'promotions', adminValidationSchemas.promotion);
 
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
 
-// Fitur Spesifik: Verifikasi Tiket Travel Reguler
+// Fitur Spesifik: Verifikasi & Kelola Tiket Travel Reguler
 router.get('/travel-bookings', masterController.getTravelBookings);
 router.put('/travel-bookings/:id/verify', masterController.verifyTravelBooking);
+router.put('/travel-bookings/:id/status', masterController.updateTravelBookingStatus);
 
 module.exports = router;
