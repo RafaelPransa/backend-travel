@@ -20,7 +20,8 @@ const travelBookingSchema = z.object({
   seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
+  baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional()
 });
 
 // Schema untuk Request Charter Pariwisata
