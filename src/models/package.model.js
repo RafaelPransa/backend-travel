@@ -9,10 +9,14 @@ const findByWaybill = async (waybill_number) => {
   return db('package_shipments').where({ waybill_number }).first();
 };
 
-const updateStatus = async (id, status) => {
+const updateStatus = async (id, status, proof_of_delivery_url = null) => {
+  const updateData = { status };
+  if (proof_of_delivery_url) {
+    updateData.proof_of_delivery_url = proof_of_delivery_url;
+  }
   const [updated] = await db('package_shipments')
     .where({ id })
-    .update({ status })
+    .update(updateData)
     .returning('*');
   return updated;
 };

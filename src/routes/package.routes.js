@@ -3,6 +3,7 @@ const router = express.Router();
 const packageController = require('../controllers/package.controller');
 const { validate, packageShipmentSchema, packageStatusSchema } = require('../middlewares/validation.middleware');
 const { authenticate, optionalAuth, authorize } = require('../middlewares/auth.middleware');
+const { uploadPackage } = require('../middlewares/upload.middleware');
 
 /**
  * @openapi
@@ -154,7 +155,7 @@ router.get('/track/:waybill_number', packageController.trackPackage);
  *                     waybill_number:
  *                       type: string
  */
-router.put('/shipments/:id/status', authenticate, authorize('driver', 'super_admin'), validate(packageStatusSchema), packageController.updatePackageStatus);
+router.put('/shipments/:id/status', authenticate, authorize('driver', 'super_admin'), uploadPackage.single('proof_image'), validate(packageStatusSchema), packageController.updatePackageStatus);
 
 /**
  * @openapi

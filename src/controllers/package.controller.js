@@ -93,7 +93,20 @@ const updatePackageStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const updatedShipment = await PackageModel.updateStatus(id, status);
+    // Supir wajib mengunggah foto bukti serah terima paket pada tahap akhir (delivered / Sampai Tujuan)
+    if (status === 'delivered' && !req.file) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Bukti penyerahan paket (foto penyerahan fisik) wajib diunggah untuk status Sampai Tujuan (delivered)'
+      });
+    }
+
+    let proof_of_delivery_url = null;
+    if (req.file) {
+      proof_of_delivery_url = `${req.protocol}://${req.get('host')}/uploads/packages/${req.file.filename}`;
+    }
+
+    const updatedShipment = await PackageModel.updateStatus(id, status, proof_of_delivery_url);
     
     if (!updatedShipment) {
       return res.status(404).json({
