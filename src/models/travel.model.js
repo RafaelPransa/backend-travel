@@ -78,6 +78,7 @@ const createBooking = async (data) => {
     seat_number: data.seat_number,
     pickup_address: data.pickup_address,
     dropoff_address: data.dropoff_address,
+    payment_method: data.payment_method,
     booking_status: 'pending',
     locked_until: locked_until
   }).returning('*');

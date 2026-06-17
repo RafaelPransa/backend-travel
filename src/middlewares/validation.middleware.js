@@ -19,7 +19,8 @@ const travelBookingSchema = z.object({
   schedule_id: z.string().uuid('Format schedule_id tidak valid'),
   seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
-  dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)')
+  dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
 });
 
 // Schema untuk Request Charter Pariwisata
@@ -31,7 +32,8 @@ const charterRequestSchema = z.object({
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
   with_driver: z.boolean().default(false),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
 }).refine((data) => {
   return new Date(data.return_date) >= new Date(data.departure_date);
 }, {
@@ -48,7 +50,8 @@ const packageShipmentSchema = z.object({
   receiver_phone: z.string().min(10, 'Nomor HP penerima tidak valid').max(15),
   receiver_address: z.string().min(10, 'Alamat penerima wajib diisi lengkap (minimal 10 karakter)'),
   package_description: z.string().min(3, 'Deskripsi paket wajib diisi'),
-  seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1)
+  seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
 });
 
 const packageStatusSchema = z.object({
@@ -129,7 +132,7 @@ const validate = (schema) => (req, res, next) => {
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const messages = error.errors.map(err => err.message);
+      const messages = error.issues.map(err => err.message);
       return res.status(400).json({
         status: 'error',
         message: 'Validasi gagal',

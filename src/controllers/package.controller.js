@@ -10,7 +10,8 @@ const createShipment = async (req, res) => {
       receiver_phone,
       receiver_address,
       package_description,
-      seat_qty
+      seat_qty,
+      payment_method
     } = req.body;
 
     const data = {
@@ -22,6 +23,7 @@ const createShipment = async (req, res) => {
       receiver_address,
       package_description,
       seat_qty: seat_qty || 1,
+      payment_method,
       status: 'received'
     };
     
