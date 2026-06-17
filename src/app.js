@@ -15,6 +15,7 @@ const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const contentRoutes = require('./routes/content.routes');
+const cmsRoutes = require('./routes/cms.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
 
 const app = express();
@@ -87,6 +88,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/admin/cashflow', cashflowRoutes);
 app.use('/api/admin/master', masterDataRoutes);
 app.use('/api/admin/dashboard', dashboardRoutes);
+app.use('/api/admin/cms', cmsRoutes);
 
 // Driver Routes
 app.use('/api/driver', driverRoutes);
