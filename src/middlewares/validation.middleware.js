@@ -51,6 +51,8 @@ const packageShipmentSchema = z.object({
   receiver_phone: z.string().min(10, 'Nomor HP penerima tidak valid').max(15),
   receiver_address: z.string().min(10, 'Alamat penerima wajib diisi lengkap (minimal 10 karakter)'),
   package_description: z.string().min(3, 'Deskripsi paket wajib diisi'),
+  weight: z.coerce.number().positive('Berat paket harus bernilai positif'),
+  dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi tidak valid (kecil, sedang, besar, super_besar)" }) }),
   seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1),
   payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
 });
