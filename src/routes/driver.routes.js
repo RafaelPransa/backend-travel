@@ -237,6 +237,65 @@ router.put('/fleets/:id/status', authenticate, authorize('driver', 'super_admin'
  */
 router.get('/maintenance-logs', authenticate, authorize('driver', 'super_admin'), driverController.getMaintenanceLogs);
 router.post('/maintenance-logs', authenticate, authorize('driver', 'super_admin'), uploadMaintenance.single('proof_image'), validate(driverValidationSchemas.maintenanceLog), driverController.createMaintenanceLog);
+
+/**
+ * @openapi
+ * /api/driver/maintenance-logs/{id}/verify:
+ *   put:
+ *     summary: Verifikasi Log Perawatan Kendaraan (Super Admin Only)
+ *     description: Mengubah status log perawatan/servis armada menjadi disetujui (approved) atau ditolak (rejected). Jika disetujui, trigger otomatis mencatat pengeluaran.
+ *     tags:
+ *       - Fleet & Maintenance Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Maintenance Log ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, rejected]
+ *                 description: Status persetujuan
+ *     responses:
+ *       200:
+ *         description: Status persetujuan log perawatan berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Laporan perbaikan kendaraan berhasil disetujui
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Input tidak valid
+ *       401:
+ *         description: Token JWT tidak valid atau kosong
+ *       403:
+ *         description: Hanya Super Admin yang diizinkan memverifikasi
+ *       404:
+ *         description: Laporan perbaikan tidak ditemukan
+ *       500:
+ *         description: Gagal memproses persetujuan log perawatan
+ */
 router.put('/maintenance-logs/:id/verify', authenticate, authorize('super_admin'), validate(adminValidationSchemas.approveExpense), driverController.verifyMaintenanceLog);
 
 module.exports = router;

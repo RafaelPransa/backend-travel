@@ -127,9 +127,20 @@ router.get('/track/:waybill_number', packageController.trackPackage);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/PackageStatusSchema'
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [received, sorting, on_transit, delivered]
+ *                 description: Status terbaru dari pengiriman paket
+ *               proof_image:
+ *                 type: string
+ *                 format: binary
+ *                 description: File foto serah terima fisik (Wajib jika status adalah delivered)
  *     responses:
  *       200:
  *         description: Status paket berhasil diperbarui

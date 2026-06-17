@@ -423,6 +423,91 @@ router.use(authenticate, authorize('super_admin'));
 
 /**
  * @openapi
+ * /api/admin/master/promotions:
+ *   get:
+ *     summary: Mendapatkan Semua Data Promosi (Super Admin)
+ *     description: Mengambil seluruh data promosi (beranda, layanan, all) untuk kebutuhan master data admin.
+ *     tags:
+ *       - Admin Master Promotions
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data promosi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *   post:
+ *     summary: Menambah Konten Promosi Baru (Super Admin)
+ *     description: Membuat promosi baru dengan menyertakan tagline, deskripsi, diskon, badge, status aktif, dan jenis promosi.
+ *     tags:
+ *       - Admin Master Promotions
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminPromotionSchema'
+ *     responses:
+ *       201:
+ *         description: Konten promosi berhasil dibuat
+ * 
+ * /api/admin/master/promotions/{id}:
+ *   put:
+ *     summary: Memperbarui Data Promosi (Super Admin)
+ *     description: Memperbarui rincian konten promosi berdasarkan ID.
+ *     tags:
+ *       - Admin Master Promotions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Promotion ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminPromotionSchema'
+ *     responses:
+ *       200:
+ *         description: Promosi berhasil diperbarui
+ *   delete:
+ *     summary: Menghapus Data Promosi (Super Admin)
+ *     description: Menghapus data promosi dari database berdasarkan ID.
+ *     tags:
+ *       - Admin Master Promotions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Promotion ID
+ *     responses:
+ *       200:
+ *         description: Promosi berhasil dihapus
+ */
+
+/**
+ * @openapi
  * /api/admin/master/package-shipments:
  *   get:
  *     summary: Mendapatkan Semua Data Pengiriman Paket (Super Admin)
