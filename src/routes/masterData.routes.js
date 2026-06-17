@@ -423,6 +423,75 @@ router.use(authenticate, authorize('super_admin'));
 
 /**
  * @openapi
+ * /api/admin/master/package-shipments:
+ *   get:
+ *     summary: Mendapatkan Semua Data Pengiriman Paket (Super Admin)
+ *     tags:
+ *       - Admin Master Package Shipments
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data pengiriman paket
+ *   post:
+ *     summary: Menambah Pengiriman Paket Baru (Super Admin)
+ *     tags:
+ *       - Admin Master Package Shipments
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PackageShipmentSchema'
+ *     responses:
+ *       201:
+ *         description: Pengiriman paket berhasil dibuat
+ * 
+ * /api/admin/master/package-shipments/{id}:
+ *   put:
+ *     summary: Memperbarui Data Pengiriman Paket (Super Admin)
+ *     tags:
+ *       - Admin Master Package Shipments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Package Shipment ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PackageShipmentSchema'
+ *     responses:
+ *       200:
+ *         description: Pengiriman paket berhasil diperbarui
+ *   delete:
+ *     summary: Menghapus Data Pengiriman Paket (Super Admin)
+ *     tags:
+ *       - Admin Master Package Shipments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Package Shipment ID
+ *     responses:
+ *       200:
+ *         description: Pengiriman paket berhasil dihapus
+ */
+
+/**
+ * @openapi
  * /api/admin/master/schedules/{id}/assign:
  *   put:
  *     summary: Menugaskan Driver & Unit Armada ke Jadwal (Super Admin)
@@ -548,6 +617,7 @@ crudRoute('/users', 'users', adminValidationSchemas.user);
 crudRoute('/banners', 'banners', adminValidationSchemas.banner);
 crudRoute('/destinations', 'destinations', adminValidationSchemas.destination);
 crudRoute('/promotions', 'promotions', adminValidationSchemas.promotion);
+crudRoute('/package-shipments', 'package_shipments', adminValidationSchemas.packageShipment);
 
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);

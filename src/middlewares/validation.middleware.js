@@ -55,7 +55,9 @@ const packageShipmentSchema = z.object({
   weight: z.coerce.number().positive('Berat paket harus bernilai positif'),
   dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi tidak valid (kecil, sedang, besar, super_besar)" }) }),
   seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
+  route_id: z.string().uuid('Format route_id tidak valid').optional(),
+  total_price: z.coerce.number().nonnegative('Harga total tidak boleh negatif').optional()
 });
 
 const packageStatusSchema = z.object({
@@ -113,6 +115,23 @@ const adminValidationSchemas = {
     badge_label: z.string().min(1),
     is_active: z.boolean().optional(),
     promo_type: z.enum(['home', 'service']).optional()
+  }),
+  packageShipment: z.object({
+    sender_name: z.string().min(3, 'Nama pengirim minimal 3 karakter').optional(),
+    sender_phone: z.string().min(10, 'Nomor HP pengirim tidak valid').max(15).optional(),
+    pickup_address: z.string().min(10, 'Alamat penjemputan paket minimal 10 karakter').optional(),
+    receiver_name: z.string().min(3, 'Nama penerima minimal 3 karakter').optional(),
+    receiver_phone: z.string().min(10, 'Nomor HP penerima tidak valid').max(15).optional(),
+    receiver_address: z.string().min(10, 'Alamat penerima minimal 10 karakter').optional(),
+    package_description: z.string().min(3, 'Deskripsi paket minimal 3 karakter').optional(),
+    weight: z.coerce.number().positive('Berat paket harus bernilai positif').optional(),
+    dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi tidak valid" }) }).optional(),
+    seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').optional(),
+    payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional(),
+    transaction_status: z.enum(['menunggu_konfirmasi', 'menunggu_pembayaran', 'selesai', 'dibatalkan', 'ditolak']).optional(),
+    status: z.enum(['received', 'sorting', 'manifesting', 'on_transit', 'delivered']).optional(),
+    route_id: z.string().uuid('Format route_id tidak valid').nullable().optional(),
+    total_price: z.coerce.number().nonnegative('Harga total tidak boleh negatif').optional()
   })
 };
 
