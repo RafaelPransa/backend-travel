@@ -6,9 +6,10 @@ const fs = require('fs');
 const paymentsDir = path.join(__dirname, '../../public/uploads/payments');
 const expensesDir = path.join(__dirname, '../../public/uploads/expenses');
 const maintenanceDir = path.join(__dirname, '../../public/uploads/maintenance');
+const packagesDir = path.join(__dirname, '../../public/uploads/packages');
 
 // Buat direktori otomatis jika belum ada
-[paymentsDir, expensesDir, maintenanceDir].forEach(dir => {
+[paymentsDir, expensesDir, maintenanceDir, packagesDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -61,8 +62,15 @@ const uploadMaintenance = multer({
   limits
 });
 
+const uploadPackage = multer({
+  storage: createStorage(packagesDir, 'package'),
+  fileFilter,
+  limits
+});
+
 module.exports = {
   uploadPayment,
   uploadExpense,
-  uploadMaintenance
+  uploadMaintenance,
+  uploadPackage
 };
