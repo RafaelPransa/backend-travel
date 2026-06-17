@@ -10,6 +10,7 @@ exports.seed = async function(knex) {
   await knex('routes').del();
   await knex('fleets').del();
   await knex('users').del();
+  await knex('promotions').del();
 
   // 2. Hash Password
   const salt = await bcrypt.genSalt(10);
@@ -74,6 +75,28 @@ exports.seed = async function(knex) {
       origin: 'Jakarta',
       destination: 'Panawangan',
       base_price: 250000
+    }
+  ]);
+
+  // 6. Masukkan Data Promotions
+  await knex('promotions').insert([
+    {
+      tagline: 'Promo Mudik Berkah RTP!',
+      description: 'Dapatkan potongan harga tiket travel mudik sebesar 20% untuk semua rute.',
+      image_url: 'https://rinitransputri.com/images/promo-mudik.jpg',
+      discount_percentage: 20.00,
+      badge_label: 'MUDIK20',
+      is_active: true,
+      promo_type: 'home'
+    },
+    {
+      tagline: 'Promo Spesial Liburan Hemat!',
+      description: 'Sewa armada Luxio dan Elf hemat 10% untuk perjalanan pariwisata.',
+      image_url: 'https://rinitransputri.com/images/promo-liburan.jpg',
+      discount_percentage: 10.00,
+      badge_label: 'LIBURAN10',
+      is_active: true,
+      promo_type: 'service'
     }
   ]);
 };

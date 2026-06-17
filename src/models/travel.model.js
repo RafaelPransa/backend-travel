@@ -79,6 +79,32 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
 
 // Membuat booking baru (status awal: menunggu_konfirmasi, tidak di-lock timer dulu)
 const createBooking = async (data) => {
+  // Ambil harga dasar rute
+  const schedule = await db('schedules')
+    .join('routes', 'schedules.route_id', 'routes.id')
+    .select('routes.base_price')
+    .where('schedules.id', data.schedule_id)
+    .first();
+
+  if (!schedule) {
+    throw new Error('Jadwal tidak ditemukan');
+  }
+
+  let finalPrice = parseFloat(schedule.base_price);
+
+  // Jika promo_id disertakan, hitung potongan harga
+  if (data.promo_id) {
+    const promo = await db('promotions')
+      .where('id', data.promo_id)
+      .andWhere('is_active', true)
+      .first();
+    
+    if (promo) {
+      const discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
+      finalPrice = finalPrice - discount;
+    }
+  }
+
   const [booking] = await db('travel_bookings').insert({
     user_id: data.user_id,
     schedule_id: data.schedule_id,
@@ -88,8 +114,11 @@ const createBooking = async (data) => {
     payment_method: data.payment_method,
     baggage_description: data.baggage_description || null,
     booking_status: 'menunggu_konfirmasi',
-    locked_until: null
+    locked_until: null,
+    price: finalPrice,
+    promo_id: data.promo_id || null
   }).returning('*');
+  
   return booking;
 };
 
