@@ -6,7 +6,7 @@ const getDashboardMetrics = async (req, res) => {
     // Menghitung seluruh kas masuk (income) hari ini dengan penyesuaian zona waktu Asia/Jakarta
     const todayRevenueResult = await db('cashflows')
       .where('type', 'income')
-      .whereRaw("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
       .sum('amount as total');
     const today_revenue = parseFloat(todayRevenueResult[0].total || 0);
 
@@ -24,13 +24,13 @@ const getDashboardMetrics = async (req, res) => {
 
     // 4. Volume pesanan hari ini (travel + charter + package created today)
     const travelToday = await db('travel_bookings')
-      .whereRaw("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
       .count('id as total');
     const charterToday = await db('charter_bookings')
-      .whereRaw("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
       .count('id as total');
     const packageToday = await db('package_shipments')
-      .whereRaw("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
       .count('id as total');
 
     const orders_today = parseInt(travelToday[0].total || 0, 10) +
@@ -39,13 +39,13 @@ const getDashboardMetrics = async (req, res) => {
 
     // Volume pesanan bulan ini (travel + charter + package created this month)
     const travelMonth = await db('travel_bookings')
-      .whereRaw("DATE_TRUNC('month', created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
+      .whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
       .count('id as total');
     const charterMonth = await db('charter_bookings')
-      .whereRaw("DATE_TRUNC('month', created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
+      .whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
       .count('id as total');
     const packageMonth = await db('package_shipments')
-      .whereRaw("DATE_TRUNC('month', created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
+      .whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)")
       .count('id as total');
 
     const orders_this_month = parseInt(travelMonth[0].total || 0, 10) +

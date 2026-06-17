@@ -3,7 +3,9 @@ const db = require('../config/db');
 const getAllCashflows = async (filter) => {
   let query = db('cashflows').orderBy('created_at', 'desc');
   
-  if (filter === 'weekly') {
+  if (filter === 'today') {
+    query = query.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
+  } else if (filter === 'weekly') {
     query = query.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
   } else if (filter === 'monthly') {
     query = query.where('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
@@ -18,7 +20,10 @@ const getSummary = async (filter) => {
   let queryIncome = db('cashflows').where('type', 'income');
   let queryExpense = db('cashflows').where('type', 'expense');
 
-  if (filter === 'weekly') {
+  if (filter === 'today') {
+    queryIncome = queryIncome.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
+    queryExpense = queryExpense.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
+  } else if (filter === 'weekly') {
     queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
     queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
   } else if (filter === 'monthly') {
@@ -76,10 +81,39 @@ const updateExpenseStatus = async (id, status) => {
   return updated;
 };
 
+const getPaginatedTransactions = async (page = 1, limit = 10) => {
+  const parsedPage = parseInt(page, 10) || 1;
+  const parsedLimit = parseInt(limit, 10) || 10;
+  const offset = (parsedPage - 1) * parsedLimit;
+
+  // Hitung total data
+  const totalResult = await db('cashflows').count('id as total').first();
+  const total = parseInt(totalResult.total || 0, 10);
+
+  // Ambil data dengan limit dan offset
+  const records = await db('cashflows')
+    .orderBy('created_at', 'desc')
+    .limit(parsedLimit)
+    .offset(offset);
+
+  const totalPages = Math.ceil(total / parsedLimit);
+
+  return {
+    data: records,
+    pagination: {
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      totalPages
+    }
+  };
+};
+
 module.exports = {
   getAllCashflows,
   getSummary,
   addCashflow,
   getExpenses,
-  updateExpenseStatus
+  updateExpenseStatus,
+  getPaginatedTransactions
 };

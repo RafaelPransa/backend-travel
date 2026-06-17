@@ -104,9 +104,31 @@ const approveExpense = async (req, res) => {
   }
 };
 
+const getRecentTransactions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    
+    const result = await CashflowModel.getPaginatedTransactions(page, limit);
+    
+    return res.status(200).json({
+      status: 'success',
+      message: 'Berhasil mengambil data transaksi cashflow',
+      data: result.data,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Error getRecentTransactions:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil data transaksi cashflow'
+    });
+  }
+};
+
 module.exports = {
   getCashflowSummary,
   addExpense,
   getDriverExpenses,
-  approveExpense
+  approveExpense,
+  getRecentTransactions
 };

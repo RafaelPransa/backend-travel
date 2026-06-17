@@ -22,7 +22,7 @@ router.use(authenticate, authorize('super_admin'));
  *         name: filter
  *         schema:
  *           type: string
- *           enum: [weekly, monthly, yearly]
+ *           enum: [today, weekly, monthly, yearly]
  *         description: Rentang waktu rangkuman kas
  *     responses:
  *       200:
@@ -42,6 +42,61 @@ router.use(authenticate, authorize('super_admin'));
  *                   type: object
  */
 router.get('/summary', cashflowController.getCashflowSummary);
+
+/**
+ * @openapi
+ * /api/admin/cashflow/transactions:
+ *   get:
+ *     summary: Mendapatkan Histori Transaksi Cashflow Terpaginasi (Super Admin)
+ *     description: Mengambil daftar riwayat transaksi kas masuk (income) dan keluar (expense) secara berurutan dari yang terbaru. Mendukung pagination.
+ *     tags:
+ *       - Admin Cashflow Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman data yang ingin diambil
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data transaksi cashflow
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Berhasil mengambil data transaksi cashflow
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ */
+router.get('/transactions', cashflowController.getRecentTransactions);
 
 /**
  * @openapi
