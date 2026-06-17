@@ -24,6 +24,7 @@ const createShipment = async (req, res) => {
       package_description,
       seat_qty: seat_qty || 1,
       payment_method,
+      transaction_status: 'menunggu_konfirmasi',
       status: 'received'
     };
     

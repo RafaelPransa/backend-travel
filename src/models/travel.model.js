@@ -35,8 +35,12 @@ const getSchedules = async ({ date, origin, destination }) => {
   const bookings = await db('travel_bookings')
     .whereIn('schedule_id', scheduleIds)
     .where(function() {
-      this.whereIn('booking_status', ['paid', 'prepaid'])
-          .orWhere('locked_until', '>', db.fn.now());
+      this.where('booking_status', 'selesai')
+          .orWhere('booking_status', 'menunggu_konfirmasi')
+          .orWhere(function() {
+            this.where('booking_status', 'menunggu_pembayaran')
+                .andWhere('locked_until', '>', db.fn.now());
+          });
     })
     .select('schedule_id')
     .count('id as total')
@@ -61,17 +65,20 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
   const existingBooking = await db('travel_bookings')
     .where({ schedule_id, seat_number })
     .where(function() {
-      this.whereIn('booking_status', ['paid', 'prepaid'])
-          .orWhere('locked_until', '>', db.fn.now());
+      this.where('booking_status', 'selesai')
+          .orWhere('booking_status', 'menunggu_konfirmasi')
+          .orWhere(function() {
+            this.where('booking_status', 'menunggu_pembayaran')
+                .andWhere('locked_until', '>', db.fn.now());
+          });
     })
     .first();
 
   return !existingBooking; // True jika tidak ada (tersedia)
 };
 
-// Membuat booking baru dan mengunci kursi selama 10 menit
+// Membuat booking baru (status awal: menunggu_konfirmasi, tidak di-lock timer dulu)
 const createBooking = async (data) => {
-  const locked_until = new Date(Date.now() + 10 * 60000); // 10 menit dari sekarang
   const [booking] = await db('travel_bookings').insert({
     user_id: data.user_id,
     schedule_id: data.schedule_id,
@@ -79,8 +86,8 @@ const createBooking = async (data) => {
     pickup_address: data.pickup_address,
     dropoff_address: data.dropoff_address,
     payment_method: data.payment_method,
-    booking_status: 'pending',
-    locked_until: locked_until
+    booking_status: 'menunggu_konfirmasi',
+    locked_until: null
   }).returning('*');
   return booking;
 };
@@ -98,7 +105,7 @@ const getManifest = async (schedule_id) => {
       'travel_bookings.dropoff_address'
     )
     .where('travel_bookings.schedule_id', schedule_id)
-    .whereIn('travel_bookings.booking_status', ['paid', 'prepaid'])
+    .where('travel_bookings.booking_status', 'selesai')
     .orderBy('travel_bookings.seat_number', 'asc');
 };
 
@@ -127,10 +134,10 @@ const getTravelHistory = async (user_id) => {
 const uploadPaymentProof = async (booking_id, user_id, file_url) => {
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['pending', 'locked']) // Hanya bisa di-upload jika masih pending atau re-upload saat locked
+    .whereIn('booking_status', ['menunggu_pembayaran', 'menunggu_konfirmasi']) 
     .update({
       payment_proof_url: file_url,
-      booking_status: 'locked' // Mengunci kursi dari cron job dan menunggu verifikasi admin
+      booking_status: 'menunggu_konfirmasi' // Kembali ke konfirmasi admin setelah bukti diunggah
     })
     .returning('*');
   

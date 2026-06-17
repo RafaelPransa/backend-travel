@@ -39,9 +39,10 @@ const getById = async (id) => {
 const uploadPaymentProof = async (charter_id, user_id, file_url) => {
   const [updated] = await db('charter_bookings')
     .where({ id: charter_id, user_id })
-    .where('status', 'pending')
+    .whereIn('status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
     .update({
-      payment_proof_url: file_url
+      payment_proof_url: file_url,
+      status: 'menunggu_konfirmasi' // Kembali ke konfirmasi admin setelah bukti diunggah
     })
     .returning('*');
   
