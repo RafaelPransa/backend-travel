@@ -28,6 +28,7 @@ const schemas = {
   AdminBannerSchema: toOpenApiSchema(validation.adminValidationSchemas?.banner),
   AdminDestinationSchema: toOpenApiSchema(validation.adminValidationSchemas?.destination),
   AdminExpenseSchema: toOpenApiSchema(validation.adminValidationSchemas?.expense),
+  AdminPromotionSchema: toOpenApiSchema(validation.adminValidationSchemas?.promotion),
   
   // Driver Schemas
   DriverScheduleStatusSchema: toOpenApiSchema(validation.driverValidationSchemas?.scheduleStatus),

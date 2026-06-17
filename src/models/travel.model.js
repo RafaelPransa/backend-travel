@@ -16,7 +16,8 @@ const getSchedules = async ({ date, origin, destination }) => {
       'fleets.car_type',
       'fleets.seat_capacity'
     )
-    .where('schedules.status', 'scheduled');
+    .where('schedules.status', 'scheduled')
+    .where('fleets.status', 'active');
 
   if (origin) query = query.where('routes.origin', origin);
   if (destination) query = query.where('routes.destination', destination);
