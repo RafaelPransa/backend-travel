@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // Daftar tabel yang diizinkan untuk operasi dinamis (Whitelist Anti SQL Injection)
-const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations', 'promotions', 'package_shipments'];
+const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations', 'promotions', 'package_shipments', 'institutional_expenses'];
 
 // Kolom sensitif yang TIDAK BOLEH dikembalikan ke client
 const SENSITIVE_COLUMNS = ['password'];
