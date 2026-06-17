@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const driverController = require('../controllers/driver.controller');
-const { validate, driverValidationSchemas } = require('../middlewares/validation.middleware');
+const { validate, driverValidationSchemas, adminValidationSchemas } = require('../middlewares/validation.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { uploadExpense, uploadMaintenance } = require('../middlewares/upload.middleware');
 
@@ -237,5 +237,6 @@ router.put('/fleets/:id/status', authenticate, authorize('driver', 'super_admin'
  */
 router.get('/maintenance-logs', authenticate, authorize('driver', 'super_admin'), driverController.getMaintenanceLogs);
 router.post('/maintenance-logs', authenticate, authorize('driver', 'super_admin'), uploadMaintenance.single('proof_image'), validate(driverValidationSchemas.maintenanceLog), driverController.createMaintenanceLog);
+router.put('/maintenance-logs/:id/verify', authenticate, authorize('super_admin'), validate(adminValidationSchemas.approveExpense), driverController.verifyMaintenanceLog);
 
 module.exports = router;

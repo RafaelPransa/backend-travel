@@ -103,12 +103,21 @@ const getMaintenanceLogs = async () => {
       'maintenance_logs.description',
       'maintenance_logs.cost',
       'maintenance_logs.proof_image_url',
+      'maintenance_logs.status',
       'maintenance_logs.created_at',
       'fleets.plate_number',
       'fleets.car_type',
       'users.name as driver_name'
     )
     .orderBy('maintenance_logs.service_date', 'desc');
+};
+
+const verifyMaintenanceLog = async (id, status) => {
+  const [updated] = await db('maintenance_logs')
+    .where({ id })
+    .update({ status })
+    .returning('*');
+  return updated;
 };
 
 // Catat log servis. Menghindari duplikasi pencatatan cashflow dengan membiarkan trigger DB yang bekerja.
@@ -158,6 +167,7 @@ module.exports = {
   updateFleetStatus,
   getMaintenanceLogs,
   createMaintenanceLog,
+  verifyMaintenanceLog,
   createOperationalExpense,
   getDriverExpenses
 };
