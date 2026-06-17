@@ -191,5 +191,13 @@ module.exports = {
   packageStatusSchema,
   adminValidationSchemas,
   driverValidationSchemas,
-  validate
+  validate,
+  forgotPasswordSchema: z.object({
+    email: z.string().email('Format email tidak valid').max(100)
+  }),
+  resetPasswordSchema: z.object({
+    token: z.string().min(1, 'Token reset wajib disertakan'),
+    newPassword: z.string().min(6, 'Password baru minimal 6 karakter')
+  })
 };
+
