@@ -42,7 +42,7 @@ const requestCharter = async (req, res) => {
       with_driver: with_driver || false,
       notes,
       payment_method,
-      status: 'pending' // Menunggu bukti bayar divalidasi
+      status: 'menunggu_konfirmasi' // Menunggu admin melakukan review/konfirmasi harga
     });
 
     const days = calculateDays(departure_date, return_date);
@@ -100,11 +100,20 @@ const verifyCharterPayment = async (req, res) => {
       });
     }
 
-    const updatedBooking = await CharterModel.updateStatus(id, 'paid');
+    let nextStatus = 'selesai';
+    if (booking.status === 'menunggu_konfirmasi') {
+      if (booking.payment_proof_url) {
+        nextStatus = 'selesai';
+      } else {
+        nextStatus = booking.payment_method === 'cashless' ? 'menunggu_pembayaran' : 'selesai';
+      }
+    }
+
+    const updatedBooking = await CharterModel.updateStatus(id, nextStatus);
 
     return res.status(200).json({
       status: 'success',
-      message: 'Pembayaran charter berhasil diverifikasi',
+      message: `Status sewa charter berhasil diperbarui menjadi ${nextStatus}`,
       data: updatedBooking
     });
 

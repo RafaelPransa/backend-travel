@@ -10,11 +10,11 @@ const startSeatLockCron = () => {
   cron.schedule('* * * * *', async () => {
     try {
       const expiredBookings = await db('travel_bookings')
-        .where('booking_status', 'pending')
+        .where('booking_status', 'menunggu_pembayaran')
         .where('locked_until', '<', db.fn.now())
         .limit(100) // Batasi jumlah record per siklus untuk mencegah overload
         .update({
-          booking_status: 'cancelled'
+          booking_status: 'dibatalkan'
         })
         .returning('id');
 

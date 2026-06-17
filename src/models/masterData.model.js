@@ -86,11 +86,35 @@ const getTravelBookings = async () => {
 };
 
 const verifyTravelBooking = async (booking_id) => {
+  const booking = await db('travel_bookings').where('id', booking_id).first();
+  if (!booking) return null;
+
+  let updatePayload = {};
+  
+  if (booking.booking_status === 'menunggu_konfirmasi') {
+    if (booking.payment_proof_url) {
+      // Kasus 1: Bukti bayar sudah diunggah, admin memverifikasi pembayaran (Lunas)
+      updatePayload = { booking_status: 'selesai' };
+    } else {
+      // Kasus 2: Baru diajukan oleh user, admin mengonfirmasi pesanan tersebut
+      if (booking.payment_method === 'cashless') {
+        // Jika cashless, ubah ke menunggu_pembayaran dan set lock 10 menit
+        const locked_until = new Date(Date.now() + 10 * 60000);
+        updatePayload = { booking_status: 'menunggu_pembayaran', locked_until };
+      } else {
+        // Jika cash, langsung ubah ke selesai (terkonfirmasi)
+        updatePayload = { booking_status: 'selesai' };
+      }
+    }
+  } else {
+    return null;
+  }
+
   const [updated] = await db('travel_bookings')
     .where('id', booking_id)
-    .where('booking_status', 'locked') // Admin hanya bisa verif yang sudah upload bukti (locked)
-    .update({ booking_status: 'paid' })
+    .update(updatePayload)
     .returning('*');
+
   return updated;
 };
 

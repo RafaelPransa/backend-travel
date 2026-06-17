@@ -45,7 +45,7 @@ const createBooking = async (req, res) => {
 
     return res.status(201).json({
       status: 'success',
-      message: 'Booking berhasil dibuat. Kursi dikunci selama 10 menit, segera lakukan pembayaran.',
+      message: 'Pemesanan berhasil diajukan. Menunggu konfirmasi dari Admin.',
       data: newBooking
     });
   } catch (error) {
