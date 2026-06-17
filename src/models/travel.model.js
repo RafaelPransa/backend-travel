@@ -86,6 +86,7 @@ const createBooking = async (data) => {
     pickup_address: data.pickup_address,
     dropoff_address: data.dropoff_address,
     payment_method: data.payment_method,
+    baggage_description: data.baggage_description || null,
     booking_status: 'menunggu_konfirmasi',
     locked_until: null
   }).returning('*');
@@ -102,7 +103,8 @@ const getManifest = async (schedule_id) => {
       'users.phone_number',
       'travel_bookings.booking_status',
       'travel_bookings.pickup_address',
-      'travel_bookings.dropoff_address'
+      'travel_bookings.dropoff_address',
+      'travel_bookings.baggage_description'
     )
     .where('travel_bookings.schedule_id', schedule_id)
     .where('travel_bookings.booking_status', 'selesai')
@@ -120,6 +122,7 @@ const getTravelHistory = async (user_id) => {
       'travel_bookings.booking_status',
       'travel_bookings.pickup_address',
       'travel_bookings.dropoff_address',
+      'travel_bookings.baggage_description',
       'travel_bookings.created_at',
       'routes.origin',
       'routes.destination',
