@@ -618,6 +618,76 @@ crudRoute('/banners', 'banners', adminValidationSchemas.banner);
 crudRoute('/destinations', 'destinations', adminValidationSchemas.destination);
 crudRoute('/promotions', 'promotions', adminValidationSchemas.promotion);
 crudRoute('/package-shipments', 'package_shipments', adminValidationSchemas.packageShipment);
+crudRoute('/institutional-expenses', 'institutional_expenses', adminValidationSchemas.institutionalExpense);
+
+/**
+ * @openapi
+ * /api/admin/master/institutional-expenses:
+ *   get:
+ *     summary: Mendapatkan Semua Data Pengeluaran Instansi (Super Admin)
+ *     tags:
+ *       - Admin Master Institutional Expenses
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data pengeluaran instansi
+ *   post:
+ *     summary: Menambah Pengeluaran Instansi Baru (Super Admin)
+ *     tags:
+ *       - Admin Master Institutional Expenses
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminInstitutionalExpenseSchema'
+ *     responses:
+ *       201:
+ *         description: Pengeluaran instansi berhasil dibuat
+ * 
+ * /api/admin/master/institutional-expenses/{id}:
+ *   put:
+ *     summary: Memperbarui Data Pengeluaran Instansi (Super Admin)
+ *     tags:
+ *       - Admin Master Institutional Expenses
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Institutional Expense ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminInstitutionalExpenseSchema'
+ *     responses:
+ *       200:
+ *         description: Pengeluaran instansi berhasil diperbarui
+ *   delete:
+ *     summary: Menghapus Data Pengeluaran Instansi (Super Admin)
+ *     tags:
+ *       - Admin Master Institutional Expenses
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Institutional Expense ID
+ *     responses:
+ *       200:
+ *         description: Pengeluaran instansi berhasil dihapus
+ */
 
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
