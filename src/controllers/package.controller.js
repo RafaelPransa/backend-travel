@@ -13,7 +13,9 @@ const createShipment = async (req, res) => {
       weight,
       dimension,
       seat_qty,
-      payment_method
+      payment_method,
+      route_id,
+      total_price
     } = req.body;
 
     const data = {
@@ -28,6 +30,8 @@ const createShipment = async (req, res) => {
       dimension,
       seat_qty: seat_qty || 1,
       payment_method,
+      route_id: route_id || null,
+      total_price: total_price || null,
       transaction_status: 'menunggu_konfirmasi',
       status: 'received'
     };
