@@ -207,6 +207,36 @@ const getMyExpenses = async (req, res) => {
   }
 };
 
+const verifyMaintenanceLog = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'approved' atau 'rejected'
+
+    const updated = await DriverModel.verifyMaintenanceLog(id, status);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Laporan perbaikan kendaraan tidak ditemukan'
+      });
+    }
+
+    const actionText = status === 'approved' ? 'disetujui' : 'ditolak';
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Laporan perbaikan kendaraan berhasil ${actionText}`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error verifyMaintenanceLog:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status persetujuan laporan perbaikan kendaraan'
+    });
+  }
+};
+
 module.exports = {
   getMySchedules,
   updateScheduleStatus,
@@ -214,6 +244,7 @@ module.exports = {
   updateFleetStatus,
   getMaintenanceLogs,
   createMaintenanceLog,
+  verifyMaintenanceLog,
   createExpense,
   getMyExpenses
 };
