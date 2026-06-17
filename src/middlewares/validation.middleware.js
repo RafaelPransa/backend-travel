@@ -114,7 +114,7 @@ const adminValidationSchemas = {
     discount_percentage: z.number().min(0).max(100),
     badge_label: z.string().min(1),
     is_active: z.boolean().optional(),
-    promo_type: z.enum(['home', 'service']).optional()
+    promo_type: z.enum(['home', 'service', 'all']).optional()
   }),
   packageShipment: z.object({
     sender_name: z.string().min(3, 'Nama pengirim minimal 3 karakter').optional(),
