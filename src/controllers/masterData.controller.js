@@ -220,6 +220,54 @@ const getPackageShipments = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = { ...req.body };
+
+    const targetUser = await MasterDataModel.getById('users', id);
+    if (!targetUser) {
+      return res.status(404).json({ status: 'error', message: 'Pengguna tidak ditemukan' });
+    }
+
+    if (targetUser.role === 'super_admin') {
+      return res.status(403).json({ status: 'error', message: 'Perubahan pada akun Super Admin tidak diizinkan' });
+    }
+
+    if (data.password) {
+      const salt = await bcrypt.genSalt(10);
+      data.password = await bcrypt.hash(data.password, salt);
+    }
+
+    const updated = await MasterDataModel.updateRecord('users', id, data);
+    return res.status(200).json({ status: 'success', message: 'Data pengguna berhasil diubah', data: updated });
+  } catch (error) {
+    console.error('Error updateUser:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengubah data pengguna' });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const targetUser = await MasterDataModel.getById('users', id);
+    if (!targetUser) {
+      return res.status(404).json({ status: 'error', message: 'Pengguna tidak ditemukan' });
+    }
+
+    if (targetUser.role === 'super_admin') {
+      return res.status(403).json({ status: 'error', message: 'Penghapusan akun Super Admin tidak diizinkan' });
+    }
+
+    await MasterDataModel.deleteRecord('users', id);
+    return res.status(200).json({ status: 'success', message: 'Pengguna berhasil dihapus' });
+  } catch (error) {
+    console.error('Error deleteUser:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal menghapus pengguna' });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -229,5 +277,7 @@ module.exports = {
   getTravelBookings,
   verifyTravelBooking,
   updateTravelBookingStatus,
-  getPackageShipments
+  getPackageShipments,
+  updateUser,
+  deleteUser
 };
