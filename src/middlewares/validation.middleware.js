@@ -141,6 +141,10 @@ const adminValidationSchemas = {
     amount: z.coerce.number().positive('Jumlah pengeluaran harus berupa angka positif'),
     payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format payment_date harus YYYY-MM-DD'),
     description: z.string().optional().nullable()
+  }),
+  verifyCharter: z.object({
+    driver_id: z.string().uuid('Format driver_id tidak valid').nullable().optional(),
+    fleet_id: z.string().uuid('Format fleet_id tidak valid').nullable().optional()
   })
 };
 
