@@ -77,10 +77,24 @@ const getTravelBookings = async () => {
       'travel_bookings.seat_number',
       'travel_bookings.booking_status',
       'travel_bookings.payment_proof_url',
+      'travel_bookings.pickup_address',
+      'travel_bookings.dropoff_address',
+      'travel_bookings.baggage_description',
+      'travel_bookings.baggage_weight',
+      'travel_bookings.baggage_dimension',
+      'travel_bookings.is_baggage_charge',
+      'travel_bookings.price',
+      'travel_bookings.eta',
+      'travel_bookings.payment_method',
+      'travel_bookings.schedule_id',
       'users.name as customer_name',
+      'users.phone_number as customer_phone',
       'routes.origin',
       'routes.destination',
-      'schedules.departure_time'
+      'schedules.departure_time',
+      'schedules.fleet_id',
+      'schedules.driver_id',
+      'schedules.driver_2_id'
     )
     .orderBy('travel_bookings.created_at', 'desc');
 };
