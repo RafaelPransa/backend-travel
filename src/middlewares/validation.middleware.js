@@ -144,7 +144,9 @@ const adminValidationSchemas = {
   }),
   verifyCharter: z.object({
     driver_id: z.string().uuid('Format driver_id tidak valid').nullable().optional(),
-    fleet_id: z.string().uuid('Format fleet_id tidak valid').nullable().optional()
+    fleet_id: z.string().uuid('Format fleet_id tidak valid').nullable().optional(),
+    driver_2_id: z.string().uuid('Format driver_2_id tidak valid').nullable().optional(),
+    offered_price: z.coerce.number().positive('Harga sewa harus bernilai positif').nullable().optional()
   })
 };
 

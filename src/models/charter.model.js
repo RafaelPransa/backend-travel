@@ -9,12 +9,14 @@ const getHistory = async (user_id, role) => {
   const query = db('charter_bookings')
     .join('users', 'charter_bookings.user_id', 'users.id')
     .leftJoin('users as driver', 'charter_bookings.driver_id', 'driver.id')
+    .leftJoin('users as driver_2', 'charter_bookings.driver_2_id', 'driver_2.id')
     .leftJoin('fleets', 'charter_bookings.fleet_id', 'fleets.id')
     .select(
       'charter_bookings.*',
       'users.name as customer_name',
       'users.phone_number as customer_phone',
       'driver.name as driver_name',
+      'driver_2.name as driver_2_name',
       'fleets.plate_number',
       'fleets.car_type as fleet_car_type'
     )
