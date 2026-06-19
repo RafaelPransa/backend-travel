@@ -133,6 +133,7 @@ const adminValidationSchemas = {
     transaction_status: z.enum(['menunggu_konfirmasi', 'menunggu_pembayaran', 'selesai', 'dibatalkan', 'ditolak']).optional(),
     status: z.enum(['received', 'sorting', 'manifesting', 'on_transit', 'delivered']).optional(),
     route_id: z.string().uuid('Format route_id tidak valid').nullable().optional(),
+    fleet_id: z.string().uuid('Format fleet_id tidak valid').nullable().optional(),
     total_price: z.coerce.number().nonnegative('Harga total tidak boleh negatif').optional()
   }),
   institutionalExpense: z.object({
