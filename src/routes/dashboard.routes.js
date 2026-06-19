@@ -69,4 +69,56 @@ router.use(authenticate, authorize('super_admin'));
  */
 router.get('/metrics', dashboardController.getDashboardMetrics);
 
+/**
+ * @openapi
+ * /api/admin/dashboard/active-duties:
+ *   get:
+ *     summary: Daftar Lengkap Armada Sedang Bertugas (Super Admin)
+ *     description: Mengambil seluruh daftar tugas aktif hari ini untuk regular travel rute (RUTE) dan sewa charter pariwisata (BOOKING) secara terpaginasi.
+ *     tags:
+ *       - Admin Dashboard Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman data yang ingin diambil
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil daftar tugas aktif
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ */
+router.get('/active-duties', dashboardController.getActiveDuties);
+
 module.exports = router;

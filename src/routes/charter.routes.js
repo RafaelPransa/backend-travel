@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const charterController = require('../controllers/charter.controller');
-const { validate, charterRequestSchema } = require('../middlewares/validation.middleware');
+const { validate, charterRequestSchema, adminValidationSchemas } = require('../middlewares/validation.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { uploadPayment } = require('../middlewares/upload.middleware');
 
@@ -202,6 +202,6 @@ router.get('/history', authenticate, authorize('customer', 'super_admin'), chart
  *                       type: string
  *                       example: paid
  */
-router.put('/:id/verify', authenticate, authorize('super_admin'), charterController.verifyCharterPayment);
+router.put('/:id/verify', authenticate, authorize('super_admin'), validate(adminValidationSchemas.verifyCharter), charterController.verifyCharterPayment);
 
 module.exports = router;

@@ -8,10 +8,15 @@ const createRequest = async (data) => {
 const getHistory = async (user_id, role) => {
   const query = db('charter_bookings')
     .join('users', 'charter_bookings.user_id', 'users.id')
+    .leftJoin('users as driver', 'charter_bookings.driver_id', 'driver.id')
+    .leftJoin('fleets', 'charter_bookings.fleet_id', 'fleets.id')
     .select(
       'charter_bookings.*',
       'users.name as customer_name',
-      'users.phone_number as customer_phone'
+      'users.phone_number as customer_phone',
+      'driver.name as driver_name',
+      'fleets.plate_number',
+      'fleets.car_type as fleet_car_type'
     )
     .orderBy('charter_bookings.created_at', 'desc');
 
@@ -23,10 +28,10 @@ const getHistory = async (user_id, role) => {
   return query;
 };
 
-const updateStatus = async (id, status) => {
+const updateStatus = async (id, status, extraFields = {}) => {
   const [updated] = await db('charter_bookings')
     .where({ id })
-    .update({ status })
+    .update({ status, ...extraFields })
     .returning('*');
   return updated;
 };

@@ -109,7 +109,12 @@ const verifyCharterPayment = async (req, res) => {
       }
     }
 
-    const updatedBooking = await CharterModel.updateStatus(id, nextStatus);
+    const { driver_id, fleet_id } = req.body;
+    const extraFields = {};
+    if (driver_id !== undefined) extraFields.driver_id = driver_id;
+    if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;
+
+    const updatedBooking = await CharterModel.updateStatus(id, nextStatus, extraFields);
 
     return res.status(200).json({
       status: 'success',
