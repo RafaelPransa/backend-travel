@@ -93,7 +93,7 @@ const createBooking = async (data) => {
 
   let finalPrice = parseFloat(schedule.base_price);
 
-  // Jika promo_id disertakan, hitung potongan harga
+  // Jika promo_id disertakan, hitung potongan harga dari harga dasar tiket
   if (data.promo_id) {
     const promo = await db('promotions')
       .where('id', data.promo_id)
@@ -106,6 +106,13 @@ const createBooking = async (data) => {
     }
   }
 
+  // Hitung denda bagasi (berat > 60 kg atau dimensi super_besar)
+  let isBaggageCharge = false;
+  if (data.baggage_weight > 60.00 || data.baggage_dimension === 'super_besar') {
+    isBaggageCharge = true;
+    finalPrice += 250000.00;
+  }
+
   const [booking] = await db('travel_bookings').insert({
     user_id: data.user_id,
     schedule_id: data.schedule_id,
@@ -114,6 +121,9 @@ const createBooking = async (data) => {
     dropoff_address: data.dropoff_address,
     payment_method: data.payment_method,
     baggage_description: data.baggage_description || null,
+    baggage_weight: data.baggage_weight || null,
+    baggage_dimension: data.baggage_dimension || null,
+    is_baggage_charge: isBaggageCharge,
     booking_status: 'menunggu_konfirmasi',
     locked_until: null,
     price: finalPrice,
@@ -134,7 +144,10 @@ const getManifest = async (schedule_id) => {
       'travel_bookings.booking_status',
       'travel_bookings.pickup_address',
       'travel_bookings.dropoff_address',
-      'travel_bookings.baggage_description'
+      'travel_bookings.baggage_description',
+      'travel_bookings.baggage_weight',
+      'travel_bookings.baggage_dimension',
+      'travel_bookings.is_baggage_charge'
     )
     .where('travel_bookings.schedule_id', schedule_id)
     .where('travel_bookings.booking_status', 'selesai')
@@ -153,6 +166,9 @@ const getTravelHistory = async (user_id) => {
       'travel_bookings.pickup_address',
       'travel_bookings.dropoff_address',
       'travel_bookings.baggage_description',
+      'travel_bookings.baggage_weight',
+      'travel_bookings.baggage_dimension',
+      'travel_bookings.is_baggage_charge',
       'travel_bookings.created_at',
       'routes.origin',
       'routes.destination',

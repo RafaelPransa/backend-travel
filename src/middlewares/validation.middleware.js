@@ -22,6 +22,8 @@ const travelBookingSchema = z.object({
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
   payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
   baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional(),
+  baggage_weight: z.coerce.number().positive('Berat bagasi harus bernilai positif').optional(),
+  baggage_dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi bagasi tidak valid (kecil, sedang, besar, super_besar)" }) }).optional(),
   promo_id: z.string().uuid('Format promo_id tidak valid').optional()
 });
 
