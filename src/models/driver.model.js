@@ -42,7 +42,7 @@ const getAssignedSchedules = async (driver_id) => {
       'travel_bookings.dropoff_address'
     )
     .whereIn('travel_bookings.schedule_id', scheduleIds)
-    .whereIn('travel_bookings.booking_status', ['paid', 'prepaid'])
+    .whereIn('travel_bookings.booking_status', ['selesai'])
     .orderBy('travel_bookings.seat_number', 'asc');
 
   // 3. Kelompokkan penumpang ke jadwal masing-masing secara in-memory

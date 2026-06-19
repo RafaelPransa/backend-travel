@@ -14,7 +14,7 @@ const getMySchedules = async (req, res) => {
     console.error('Error getMySchedules:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Gagal mengambil jadwal tugas driver'
+      message: 'Gagal mengambil jadwal tugas supir'
     });
   }
 };

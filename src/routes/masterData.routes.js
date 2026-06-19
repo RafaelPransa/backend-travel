@@ -687,18 +687,9 @@ router.use(authenticate, authorize('super_admin'));
  *         description: Tiket travel berhasil diperbarui
  */
 
-// Helper untuk generate rute CRUD
-const crudRoute = (path, table, schema) => {
-  router.get(path, masterController.getRecords(table));
-  if (schema) {
-    router.post(path, validate(schema), masterController.createRecord(table));
-    router.put(`${path}/:id`, validate(schema), masterController.updateRecord(table));
-  } else {
-    router.post(path, masterController.createRecord(table));
-    router.put(`${path}/:id`, masterController.updateRecord(table));
-  }
-  router.delete(`${path}/:id`, masterController.deleteRecord(table));
-};
+// Helper CRUD generik (di-import dari modul bersama)
+const crudRouteHelper = require('../helpers/crudRoute');
+const crudRoute = (path, table, schema) => crudRouteHelper(router, path, table, schema);
 
 // Definisi Rute Master Data
 crudRoute('/fleets', 'fleets', adminValidationSchemas.fleet);

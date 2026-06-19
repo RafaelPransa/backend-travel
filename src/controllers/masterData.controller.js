@@ -121,7 +121,7 @@ const deleteRecord = (table) => async (req, res) => {
     return res.status(200).json({ status: 'success', message: 'Data berhasil dihapus' });
   } catch (error) {
     console.error(`Error deleteRecord ${table}:`, error);
-    return res.status(500).json({ status: 'error', message: 'Gagal menghapus data. Kemungkinan data ini sedang terpakai (Constraint Foreign Key)' });
+    return res.status(500).json({ status: 'error', message: 'Gagal menghapus data. Data ini masih terhubung dengan data lain di sistem.' });
   }
 };
 
