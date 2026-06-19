@@ -210,6 +210,16 @@ const updateTravelBookingStatus = async (req, res) => {
   }
 };
 
+const getPackageShipments = async (req, res) => {
+  try {
+    const shipments = await MasterDataModel.getPackageShipments();
+    return res.status(200).json({ status: 'success', message: 'Berhasil mengambil data pengiriman paket', data: shipments });
+  } catch (error) {
+    console.error('Error getPackageShipments:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengambil data pengiriman paket' });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -218,5 +228,6 @@ module.exports = {
   assignSchedule,
   getTravelBookings,
   verifyTravelBooking,
-  updateTravelBookingStatus
+  updateTravelBookingStatus,
+  getPackageShipments
 };

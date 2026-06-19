@@ -165,6 +165,20 @@ const updateTravelBookingStatus = async (booking_id, { booking_status, eta, pric
   return updated;
 };
 
+const getPackageShipments = async () => {
+  return db('package_shipments')
+    .leftJoin('routes', 'package_shipments.route_id', 'routes.id')
+    .leftJoin('fleets', 'package_shipments.fleet_id', 'fleets.id')
+    .select(
+      'package_shipments.*',
+      'routes.origin',
+      'routes.destination',
+      'fleets.plate_number as fleet_plate_number',
+      'fleets.car_type as fleet_car_type'
+    )
+    .orderBy('package_shipments.created_at', 'desc');
+};
+
 module.exports = {
   getTableData,
   getById,
@@ -173,5 +187,6 @@ module.exports = {
   deleteRecord,
   getTravelBookings,
   verifyTravelBooking,
-  updateTravelBookingStatus
+  updateTravelBookingStatus,
+  getPackageShipments
 };
