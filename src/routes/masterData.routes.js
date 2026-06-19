@@ -245,6 +245,7 @@ router.use(authenticate, authorize('super_admin'));
  * /api/admin/master/users/{id}:
  *   put:
  *     summary: Memperbarui Data Pengguna (Super Admin)
+ *     description: Memperbarui data pengguna. Perubahan hanya diizinkan untuk akun dengan peran 'customer' atau 'driver'. Perubahan pada akun 'super_admin' akan ditolak.
  *     tags:
  *       - Admin Master Users
  *     security:
@@ -265,8 +266,11 @@ router.use(authenticate, authorize('super_admin'));
  *     responses:
  *       200:
  *         description: Pengguna berhasil diperbarui
+ *       403:
+ *         description: Perubahan pada akun Super Admin tidak diizinkan
  *   delete:
  *     summary: Menghapus Data Pengguna (Super Admin)
+ *     description: Menghapus data pengguna. Penghapusan hanya diizinkan untuk akun dengan peran 'customer' atau 'driver'. Penghapusan pada akun 'super_admin' akan ditolak.
  *     tags:
  *       - Admin Master Users
  *     security:
@@ -281,6 +285,8 @@ router.use(authenticate, authorize('super_admin'));
  *     responses:
  *       200:
  *         description: Pengguna berhasil dihapus
+ *       403:
+ *         description: Penghapusan akun Super Admin tidak diizinkan
  */
 
 /**
