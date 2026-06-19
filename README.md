@@ -26,7 +26,7 @@ Aplikasi ini mengadopsi kontrol akses berbasis peran (RBAC) yang ketat untuk men
 
 * **Customer**: Mendaftar dan login mandiri. Dapat mencari jadwal perjalanan aktif, memesan kursi travel (dengan sistem kunci kursi 10 menit), mengajukan sewa charter pariwisata, melakukan pengiriman paket, mengunggah bukti pembayaran, serta memantau riwayat transaksi personal.
 * **Driver (Supir)**: Login menggunakan akun khusus yang didaftarkan oleh Super Admin. Driver berhak memantau tugas perjalanan yang diberikan, melihat manifest penumpang per keberangkatan, memperbarui status perjalanan secara real-time, mencatat log perawatan armada (servis rutin/masuk bengkel), dan mengajukan biaya operasional perjalanan (tol, bensin, parkir).
-* **Super Admin**: Pengendali penuh sistem. Mengelola seluruh master data, memvalidasi dan memverifikasi bukti transaksi, memverifikasi log perawatan dan klaim biaya operasional driver, serta memantau dashboard analitik keuangan (*ledger cashflow*, *Gross*, dan *Net Profit*).
+* **Super Admin**: Pengendali penuh sistem. Mengelola seluruh master data, memvalidasi dan memverifikasi bukti transaksi, memverifikasi log perawatan dan klaim biaya operasional driver, serta memantau dashboard analitik keuangan (*ledger cashflow*, *Gross*, dan *Net Profit*). *Catatan keamanan: Super Admin hanya dapat mengubah (update) dan menghapus (delete) akun dengan role Customer atau Driver. Akun sesama Super Admin tidak dapat diubah atau dihapus untuk menjaga integritas sistem.*
 
 ---
 
@@ -116,7 +116,7 @@ Backend ini menyediakan **91 RESTful API** yang terdokumentasi secara interaktif
 | `POST` | `/api/charter/request` | Customer | Mengajukan sewa pariwisata |
 | `POST` | `/api/charter/request/:id/payment-proof` | Customer | Upload bukti pembayaran sewa pariwisata |
 | `GET` | `/api/charter/history` | Customer, Admin | Melihat riwayat charter pribadi/seluruh pengguna |
-| `PUT` | `/api/charter/:id/verify` | Admin | Memverifikasi pembayaran sewa charter |
+| `PUT` | `/api/charter/:id/verify` | Admin | Memverifikasi pembayaran sewa charter (menetapkan harga sewa, armada, supir utama, dan supir cadangan) |
 
 ### 5. Layanan Ekspedisi & Paket (`/api/packages`)
 | Method | Endpoint | Hak Akses | Deskripsi |
@@ -148,9 +148,11 @@ Semua rute di bawah `/api/admin/cms` membutuhkan token autentikasi **Super Admin
 
 ### 8. Panel Master Data & Operasional (`/api/admin/master`)
 Semua rute di bawah `/api/admin/master` membutuhkan token autentikasi **Super Admin**:
-- `/fleets`, `/routes`, `/schedules`, `/users`, `/banners`, `/destinations`, `/promotions`, `/package-shipments`, `/institutional-expenses` (Seluruhnya mendukung GET, POST, PUT, DELETE secara penuh).
-- `PUT` `/schedules/:id/assign` - Menugaskan supir dan unit kendaraan ke jadwal perjalanan reguler.
-- `GET` `/travel-bookings` - Memantau antrean pembayaran tiket pelanggan.
+- `/fleets`, `/routes`, `/schedules`, `/banners`, `/destinations`, `/promotions`, `/institutional-expenses` (Seluruhnya mendukung GET, POST, PUT, DELETE secara penuh).
+- `/users` (Mendukung GET dan POST secara penuh. Untuk PUT dan DELETE, hanya diperbolehkan jika target akun memiliki role `customer` atau `driver`).
+- `/package-shipments` (Mendukung GET dengan rincian asal/tujuan rute serta info armada. Mendukung PUT untuk menugaskan unit armada `fleet_id` dan mengubah harga ongkir manual `total_price`).
+- `PUT` `/schedules/:id/assign` - Menugaskan supir utama, supir cadangan, dan unit kendaraan ke jadwal perjalanan reguler.
+- `GET` `/travel-bookings` - Memantau antrean pembayaran tiket pelanggan (dilengkapi detail bagasi, alamat, armada & supir).
 - `PUT` `/travel-bookings/:id/verify` - Verifikasi manual lunas tiket regular travel.
 - `PUT` `/travel-bookings/:id/status` - Persetujuan, pembatalan, dan modifikasi pesanan tiket travel.
 
@@ -158,6 +160,7 @@ Semua rute di bawah `/api/admin/master` membutuhkan token autentikasi **Super Ad
 | Method | Endpoint | Hak Akses | Deskripsi |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/admin/dashboard/metrics` | Admin | Memantau omzet harian, jumlah transaksi, kontribusi armada |
+| `GET` | `/api/admin/dashboard/active-duties` | Admin | Mendapatkan daftar tugas armada & supir aktif hari ini secara terpaginasi |
 | `GET` | `/api/admin/cashflow/summary` | Admin | Rangkuman laba-rugi bersih (*Net Profit*) harian s/d tahunan |
 | `GET` | `/api/admin/cashflow/transactions` | Admin | Buku besar mutasi kas masuk/keluar terpaginasi |
 | `POST` | `/api/admin/cashflow/expense` | Admin | Mencatat biaya operasional instansi secara manual |
