@@ -441,15 +441,59 @@ const cancelBooking = async (booking_id, user_id) => {
     .update({ booking_status: 'dibatalkan' })
     .returning('*');
     
+  if (updated) {
+    // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
+    const activeBookings = await db('travel_bookings')
+      .where('schedule_id', booking.schedule_id)
+      .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
+      
+    if (activeBookings.length === 0) {
+      // Hanya hapus jika tidak ada paket yang menggunakan armada di hari yang sama
+      const activePackages = await db('package_shipments')
+        .where('fleet_id', booking.fleet_id || null)
+        .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
+        .whereNotIn('status', ['delivered', 'cancelled']);
+        
+      if (activePackages.length === 0) {
+        await db('schedules').where('id', booking.schedule_id).del();
+      }
+    }
+  }
+    
   return updated;
 };
 
 const deleteBooking = async (booking_id, user_id) => {
+  const booking = await db('travel_bookings')
+    .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+    .select('schedules.id as schedule_id', 'schedules.fleet_id', 'schedules.departure_time')
+    .where('travel_bookings.id', booking_id)
+    .where('travel_bookings.user_id', user_id)
+    .first();
+
   // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
   const deletedRows = await db('travel_bookings')
     .where({ id: booking_id, user_id })
     .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
     .del();
+    
+  if (deletedRows > 0 && booking) {
+    // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
+    const activeBookings = await db('travel_bookings')
+      .where('schedule_id', booking.schedule_id)
+      .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
+      
+    if (activeBookings.length === 0) {
+      const activePackages = await db('package_shipments')
+        .where('fleet_id', booking.fleet_id || null)
+        .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
+        .whereNotIn('status', ['delivered', 'cancelled']);
+        
+      if (activePackages.length === 0) {
+        await db('schedules').where('id', booking.schedule_id).del();
+      }
+    }
+  }
   return deletedRows > 0;
 };
 
