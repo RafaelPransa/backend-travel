@@ -419,8 +419,16 @@ const cancelBooking = async (booking_id, user_id) => {
 
   if (!booking) return null;
 
-  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran'].includes(booking.booking_status)) {
-    return null; 
+  if (['dibatalkan', 'ditolak', 'REJECTED'].includes(booking.booking_status)) {
+    const error = new Error('Pesanan ini sudah dibatalkan sebelumnya.');
+    error.code = 'ALREADY_CANCELLED';
+    throw error;
+  }
+
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi'].includes(booking.booking_status)) {
+    const error = new Error(`Pesanan dengan status ${booking.booking_status} tidak dapat dibatalkan oleh pelanggan.`);
+    error.code = 'INVALID_STATUS';
+    throw error;
   }
 
   if (['selesai', 'COMPLETED', 'APPROVED'].includes(booking.booking_status)) {

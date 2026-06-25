@@ -238,7 +238,7 @@ const cancelBooking = async (req, res) => {
       data: updatedBooking
     });
   } catch (error) {
-    if (error.code === 'CANCELLATION_TIMEOUT') {
+    if (['CANCELLATION_TIMEOUT', 'ALREADY_CANCELLED', 'INVALID_STATUS'].includes(error.code)) {
       return res.status(400).json({ status: 'error', message: error.message });
     }
     console.error('Error cancelBooking:', error);
