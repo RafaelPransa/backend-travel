@@ -1,5 +1,47 @@
 const PackageModel = require('../models/package.model');
 const { isJabodetabek } = require('../utils/jabodetabek');
+const { getAvailableFleets } = require('../helpers/fleetAvailability');
+const TravelModel = require('../models/travel.model');
+const db = require('../config/db');
+
+const checkAvailability = async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ status: 'error', message: 'Parameter date wajib diisi' });
+    }
+
+    // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
+    const idleFleets = await getAvailableFleets(null, date, date);
+    let isAvailable = idleFleets.length > 0;
+
+    // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
+    if (!isAvailable) {
+      const schedules = await db('schedules')
+        .whereRaw('DATE(departure_time) = ?', [date])
+        .where('status', 'scheduled');
+
+      for (const sched of schedules) {
+        const loadInfo = await TravelModel.calculateLoad(sched.route_id, date);
+        if (loadInfo.status !== 'full') {
+          isAvailable = true; // Ada schedule Rute yang belum penuh, Paket bisa menumpang
+          break;
+        }
+      }
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: { available: isAvailable }
+    });
+  } catch (error) {
+    console.error('Error checkAvailability package:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengecek ketersediaan paket'
+    });
+  }
+};
 
 const createShipment = async (req, res) => {
   try {
@@ -64,6 +106,39 @@ const createShipment = async (req, res) => {
           });
         }
       }
+
+      // CHECK AVAILABILITY SEBELUM MEMBUAT PAKET
+      const { getAvailableFleets } = require('../helpers/fleetAvailability');
+      const TravelModel = require('../models/travel.model');
+      const db = require('../config/db');
+
+      // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
+      const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
+      let isAvailable = idleFleets.length > 0;
+
+      // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
+      if (!isAvailable) {
+        const schedules = await db('schedules')
+          .whereRaw('DATE(departure_time) = ?', [departure_date])
+          .where('status', 'scheduled');
+
+        for (const sched of schedules) {
+          const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
+          if (loadInfo.status !== 'full') {
+            isAvailable = true; // Ada schedule Rute yang belum penuh, Paket bisa menumpang
+            break;
+          }
+        }
+      }
+
+      if (!isAvailable) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Mohon maaf, kapasitas armada pengiriman sudah penuh pada tanggal tersebut. Silakan pilih tanggal lain.'
+        });
+      }
+
+      data.departure_date = departure_date;
     }
     
     // Jika ada token yang valid dari customer, kita bisa ambil user_id dari req.user opsional
@@ -270,5 +345,6 @@ module.exports = {
   getPackageHistory,
   cancelBooking,
   deleteBooking,
-  updatePaymentMethod
+  updatePaymentMethod,
+  checkAvailability
 };

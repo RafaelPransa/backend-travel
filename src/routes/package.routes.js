@@ -7,6 +7,39 @@ const { uploadPackage } = require('../middlewares/upload.middleware');
 
 /**
  * @openapi
+ * /api/packages/availability:
+ *   get:
+ *     summary: Mengecek Ketersediaan Armada untuk Paket
+ *     description: Mengecek apakah ada armada yang tersedia pada tanggal tertentu untuk pengiriman paket.
+ *     tags:
+ *       - Package Shipment (Kurir) Service
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil ketersediaan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     available:
+ *                       type: boolean
+ */
+router.get('/availability', packageController.checkAvailability);
+
+/**
+ * @openapi
  * /api/packages/shipments:
  *   post:
  *     summary: Membuat Pengiriman Paket Baru
