@@ -54,7 +54,15 @@ const calculateLoad = async (route_id, dateString) => {
   let max_capacity = 0;
 
   try {
-    const availableFleets = await getAvailableFleets(null, dateString, dateString);
+    // PENTING: kecualikan schedule.id ini dari daftar penguncian armada, 
+    // karena armada ini justru sedang kita hitung kapasitasnya untuk jadwal ini!
+    const availableFleets = await getAvailableFleets(
+      null, 
+      dateString, 
+      dateString, 
+      null, 
+      schedule ? schedule.id : null
+    );
     
     if (availableFleets.length > 0) {
       // Sort berdasarkan kapasitas terkecil ke terbesar
@@ -221,17 +229,25 @@ const createBooking = async (data) => {
       // Bikin schedule baru on-the-fly, armada dialokasikan sistem
       const departureTime = new Date(data.departure_date);
       departureTime.setHours(8, 0, 0, 0); // Default jam 8 pagi
-      
-      const availableFleet = await db('fleets').where({ status: 'available' }).first();
-      
-      const [newSchedule] = await db('schedules').insert({
-        route_id: data.route_id,
-        fleet_id: availableFleet ? availableFleet.id : null,
-        departure_time: departureTime,
-        status: 'scheduled'
-      }).returning('*');
-      schedule_id = newSchedule.id;
-    }
+            // Gunakan getAvailableFleets dari fleetAvailability
+        const availableFleets = await getAvailableFleets(null, data.departure_date, data.departure_date);
+        
+        if (availableFleets.length === 0) {
+          const error = new Error('Tidak ada armada yang tersedia pada tanggal tersebut.');
+          error.code = 'NO_FLEET_AVAILABLE';
+          throw error;
+        }
+
+        const selectedFleet = availableFleets[0]; // Ambil armada pertama yang tersedia
+        
+        const [newSchedule] = await db('schedules').insert({
+          route_id: data.route_id,
+          fleet_id: selectedFleet.id,
+          departure_time: departureTime,
+          status: 'scheduled'
+        }).returning('*');
+        schedule_id = newSchedule.id;
+      }
   }
 
   const schedule = await db('schedules')
