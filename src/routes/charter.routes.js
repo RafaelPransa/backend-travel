@@ -7,6 +7,25 @@ const { uploadPayment } = require('../middlewares/upload.middleware');
 
 /**
  * @openapi
+ * /api/charter/availability:
+ *   get:
+ *     summary: Cek Ketersediaan Armada Charter
+ *     description: Mengembalikan data sisa ketersediaan armada berdasarkan tanggal.
+ *     tags:
+ *       - Charter (Pariwisata) Service
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: Tanggal yang ingin dicek (YYYY-MM-DD)
+ */
+// router.get('/availability', charterController.checkAvailability);
+
+/**
+ * @openapi
  * /api/charter/request:
  *   post:
  *     summary: Mengajukan Sewa Charter (Pariwisata)
@@ -203,5 +222,22 @@ router.get('/history', authenticate, authorize('customer', 'super_admin'), chart
  *                       example: paid
  */
 router.put('/:id/verify', authenticate, authorize('super_admin'), validate(adminValidationSchemas.verifyCharter), charterController.verifyCharterPayment);
+
+/**
+ * @openapi
+ * /api/charter/request/{id}/payment-method:
+ *   put:
+ *     summary: Memilih Metode Pembayaran
+ *     description: Memilih metode pembayaran (cash atau cashless)
+ *     tags:
+ *       - Charter Request
+ *     security:
+ *       - bearerAuth: []
+ */
+// router.put('/request/:id/payment-method', authenticate, authorize('customer'), charterController.updatePaymentMethod);
+
+// Supaya endpoint frontend konsisten: /api/charter/bookings/:id/cancel
+// router.put('/bookings/:id/cancel', authenticate, authorize('customer'), charterController.cancelBooking);
+// router.delete('/bookings/:id', authenticate, authorize('customer'), charterController.deleteBooking);
 
 module.exports = router;

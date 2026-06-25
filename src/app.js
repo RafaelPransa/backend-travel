@@ -14,6 +14,7 @@ const cashflowRoutes = require('./routes/cashflow.routes');
 const masterDataRoutes = require('./routes/masterData.routes');
 const driverRoutes = require('./routes/driver.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const assignmentRoutes = require('./routes/assignment.routes');
 const contentRoutes = require('./routes/content.routes');
 const cmsRoutes = require('./routes/cms.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
@@ -25,7 +26,7 @@ const app = express();
 // ============================================================
 
 // Proteksi header HTTP (XSS, Clickjacking, MIME Sniffing, dll.)
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 // CORS: Hanya izinkan origin yang terdaftar (bukan wildcard *)
 const appPort = process.env.PORT || 5000;
@@ -88,6 +89,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/admin/cashflow', cashflowRoutes);
 app.use('/api/admin/master', masterDataRoutes);
 app.use('/api/admin/dashboard', dashboardRoutes);
+app.use('/api/admin/assignments', assignmentRoutes);
 app.use('/api/admin/cms', cmsRoutes);
 
 // Driver Routes

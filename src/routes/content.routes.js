@@ -130,5 +130,8 @@ router.get('/destinations', contentController.getDestinations);
  *                         type: string
  */
 router.get('/promotions', contentController.getPromotions);
+router.get('/routes', contentController.getRoutes);
+router.get('/fleets/check', contentController.checkFleetsAvailability);
+router.get('/fleets', contentController.getFleets);
 
 module.exports = router;

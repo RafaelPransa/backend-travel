@@ -28,9 +28,53 @@ const getPackageHistory = async (user_id) => {
     .orderBy('created_at', 'desc');
 };
 
+const cancelBooking = async (booking_id, user_id) => {
+  const shipment = await db('package_shipments')
+    .select('status', 'created_at')
+    .where('id', booking_id)
+    .andWhere('user_id', user_id)
+    .first();
+
+  if (!shipment) return null;
+
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'pending'].includes(shipment.status)) {
+    return null;
+  }
+
+  if (['selesai', 'COMPLETED', 'APPROVED'].includes(shipment.status)) {
+    const creationDate = new Date(shipment.created_at);
+    const deadline = new Date(creationDate);
+    deadline.setHours(12, 0, 0, 0); 
+    
+    const now = new Date();
+    if (now > deadline) {
+      const error = new Error('Pembatalan pesanan hanya dapat dilakukan sebelum pukul 12 Siang pada tanggal pemesanan');
+      error.code = 'CANCELLATION_TIMEOUT';
+      throw error;
+    }
+  }
+
+  const [updated] = await db('package_shipments')
+    .where({ id: booking_id, user_id })
+    .update({ status: 'dibatalkan' })
+    .returning('*');
+    
+  return updated;
+};
+
+const deleteBooking = async (booking_id, user_id) => {
+  const deletedRows = await db('package_shipments')
+    .where({ id: booking_id, user_id })
+    .whereIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
+    .del();
+  return deletedRows > 0;
+};
+
 module.exports = {
   createShipment,
   findByWaybill,
   updateStatus,
-  getPackageHistory
+  getPackageHistory,
+  cancelBooking,
+  deleteBooking
 };

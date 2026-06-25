@@ -78,6 +78,8 @@ const { uploadPayment } = require('../middlewares/upload.middleware');
  *                         type: integer
  *                         example: 5
  */
+router.get('/schedules/availability', travelController.getSchedulesAvailability);
+router.get('/seats', travelController.getSeatsOccupancy);
 router.get('/schedules', travelController.getSchedules);
 
 /**
@@ -301,5 +303,44 @@ router.get('/history', authenticate, authorize('customer'), travelController.get
  *                       example: "http://localhost:5000/uploads/payments/payment-1686123456789.png"
  */
 router.post('/bookings/:id/payment-proof', authenticate, authorize('customer'), uploadPayment.single('payment_proof'), travelController.uploadPaymentProof);
+
+/**
+ * @openapi
+ * /api/travel/bookings/{id}/payment-method:
+ *   put:
+ *     summary: Memilih Metode Pembayaran
+ *     description: Memilih metode pembayaran (cash atau cashless)
+ *     tags:
+ *       - Travel Regular Service
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/bookings/:id/payment-method', authenticate, authorize('customer'), travelController.updatePaymentMethod);
+
+/**
+ * @openapi
+ * /api/travel/bookings/{id}/cancel:
+ *   put:
+ *     summary: Membatalkan Pesanan Travel
+ *     description: Membatalkan tiket oleh customer
+ *     tags:
+ *       - Travel Regular Service
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/bookings/:id/cancel', authenticate, authorize('customer'), travelController.cancelBooking);
+
+/**
+ * @openapi
+ * /api/travel/bookings/{id}:
+ *   delete:
+ *     summary: Menghapus Riwayat Pesanan Travel
+ *     description: Menghapus riwayat pesanan tiket permanen oleh customer
+ *     tags:
+ *       - Travel Regular Service
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/bookings/:id', authenticate, authorize('customer'), travelController.deleteBooking);
 
 module.exports = router;

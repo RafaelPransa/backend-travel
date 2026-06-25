@@ -36,6 +36,24 @@ const createShipment = async (req, res) => {
       status: 'received'
     };
     
+    const { departure_date } = req.body;
+    if (departure_date) {
+      const depDate = new Date(departure_date);
+      const now = new Date();
+      if (
+        depDate.getFullYear() === now.getFullYear() &&
+        depDate.getMonth() === now.getMonth() &&
+        depDate.getDate() === now.getDate()
+      ) {
+        if (now.getHours() >= 14) {
+          return res.status(400).json({
+            status: 'error',
+            message: 'Pengiriman untuk hari ini sudah ditutup (armada berangkat jam 15:00). Silakan pilih tanggal besok atau lainnya.'
+          });
+        }
+      }
+    }
+    
     // Jika ada token yang valid dari customer, kita bisa ambil user_id dari req.user opsional
     if (req.user && req.user.id) {
       data.user_id = req.user.id;
@@ -148,9 +166,63 @@ const getPackageHistory = async (req, res) => {
   }
 };
 
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const updatedBooking = await PackageModel.cancelBooking(id, userId);
+    
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dibatalkan'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Pesanan berhasil dibatalkan',
+      data: updatedBooking
+    });
+  } catch (error) {
+    if (error.code === 'CANCELLATION_TIMEOUT') {
+      return res.status(400).json({ status: 'error', message: error.message });
+    }
+    console.error('Error cancelBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal membatalkan pesanan' });
+  }
+};
+
+const deleteBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await PackageModel.deleteBooking(id, userId);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dihapus'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Riwayat pesanan berhasil dihapus'
+    });
+  } catch (error) {
+    console.error('Error deleteBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal menghapus pesanan' });
+  }
+};
+
 module.exports = {
   createShipment,
   trackPackage,
   updatePackageStatus,
-  getPackageHistory
+  getPackageHistory,
+  cancelBooking,
+  deleteBooking
 };

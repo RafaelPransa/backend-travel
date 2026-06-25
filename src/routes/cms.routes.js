@@ -3,13 +3,33 @@ const router = express.Router();
 const masterController = require('../controllers/masterData.controller');
 const { validate, adminValidationSchemas } = require('../middlewares/validation.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { uploadCms } = require('../middlewares/upload.middleware');
 
 // Gunakan middleware keamanan di semua rute ini (Hanya Super Admin)
 router.use(authenticate, authorize('super_admin'));
 
 // Helper CRUD generik (di-import dari modul bersama)
-const crudRouteHelper = require('../helpers/crudRoute');
-const crudRoute = (path, table, schema) => crudRouteHelper(router, path, table, schema);
+// Karena tidak semua memiliki image, kita bisa gunakan di rute cms
+const cmsUpload = uploadCms.single('image');
+
+const handleImageUpload = (req, res, next) => {
+  if (req.file) {
+    req.body.image_url = `/uploads/cms/${req.file.filename}`;
+  }
+  next();
+};
+
+const crudRouteCms = (path, table, schema) => {
+  router.get(path, masterController.getRecords(table));
+  if (schema) {
+    router.post(path, cmsUpload, handleImageUpload, validate(schema), masterController.createRecord(table));
+    router.put(`${path}/:id`, cmsUpload, handleImageUpload, validate(schema), masterController.updateRecord(table));
+  } else {
+    router.post(path, cmsUpload, handleImageUpload, masterController.createRecord(table));
+    router.put(`${path}/:id`, cmsUpload, handleImageUpload, masterController.updateRecord(table));
+  }
+  router.delete(`${path}/:id`, masterController.deleteRecord(table));
+};
 
 /**
  * @openapi
@@ -295,9 +315,9 @@ const crudRoute = (path, table, schema) => crudRouteHelper(router, path, table, 
  */
 
 // CMS CRUD Routes
-crudRoute('/promotions', 'promotions', adminValidationSchemas.promotion);
-crudRoute('/fleets', 'fleets', adminValidationSchemas.fleet);
-crudRoute('/banners', 'banners', adminValidationSchemas.banner);
-crudRoute('/destinations', 'destinations', adminValidationSchemas.destination);
+crudRouteCms('/promotions', 'promotions', adminValidationSchemas.promotion);
+crudRouteCms('/fleets', 'fleets', adminValidationSchemas.fleet);
+crudRouteCms('/banners', 'banners', adminValidationSchemas.banner);
+crudRouteCms('/destinations', 'destinations', adminValidationSchemas.destination);
 
 module.exports = router;

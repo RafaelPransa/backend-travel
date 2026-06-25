@@ -15,6 +15,8 @@ const calculateDays = (start, end) => {
   return Math.max(daysDiff + 1, 1);
 };
 
+const { getAvailableFleets } = require('../helpers/fleetAvailability');
+
 const requestCharter = async (req, res) => {
   try {
     const { 
@@ -30,10 +32,32 @@ const requestCharter = async (req, res) => {
     } = req.body;
     const user_id = req.user.id;
 
-    // Simpan ke database tanpa offered_price. Trigger calculate_charter_price akan mengisi otomatis.
+    // 1. Cari armada kosong
+    const availableFleets = await getAvailableFleets(car_type, departure_date, return_date);
+    if (availableFleets.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Maaf, seluruh armada tipe ini sudah penuh dipesan pada tanggal tersebut.'
+      });
+    }
+    
+    // Pilih armada pertama yang kosong
+    const selectedFleet = availableFleets[0];
+    
+    // Hitung total hari
+    const days = calculateDays(departure_date, return_date);
+    
+    // Hitung harga dasar
+    const basePricePerDay = selectedFleet.price && parseFloat(selectedFleet.price) > 0 
+      ? parseFloat(selectedFleet.price) 
+      : (selectedFleet.car_type.toLowerCase() === 'elf' ? 1200000 : 800000);
+    const offered_price = basePricePerDay * days;
+
+    // Simpan ke database dengan fleet_id dan harga dasar, status menunggu_pembayaran (kunci 10 menit)
     const newRequest = await CharterModel.createRequest({
       user_id,
       car_type,
+      fleet_id: selectedFleet.id,
       destination,
       departure_date,
       return_date,
@@ -42,10 +66,9 @@ const requestCharter = async (req, res) => {
       with_driver: with_driver || false,
       notes,
       payment_method,
-      status: 'menunggu_konfirmasi' // Menunggu admin melakukan review/konfirmasi harga
+      offered_price,
+      status: 'menunggu_pembayaran' 
     });
-
-    const days = calculateDays(departure_date, return_date);
 
     return res.status(201).json({
       status: 'success',
@@ -114,7 +137,43 @@ const verifyCharterPayment = async (req, res) => {
     if (driver_id !== undefined) extraFields.driver_id = driver_id;
     if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;
     if (driver_2_id !== undefined) extraFields.driver_2_id = driver_2_id;
-    if (offered_price !== undefined) extraFields.offered_price = offered_price;
+    
+    // Promo Logic untuk Charter
+    if (offered_price !== undefined) {
+      let finalPrice = parseFloat(offered_price);
+      let originalPrice = finalPrice;
+      let appliedPromoId = null;
+      let appliedDiscountAmount = 0;
+      
+      try {
+        const db = require('../config/db');
+        const promo = await db('promotions').where('is_active', true).first();
+        
+        if (promo && (promo.target_service.includes('all') || promo.target_service.includes('charter'))) {
+          let discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
+          
+          if (promo.max_discount && parseFloat(promo.max_discount) > 0) {
+            const maxDiscount = parseFloat(promo.max_discount);
+            if (discount > maxDiscount) {
+              discount = maxDiscount;
+            }
+          }
+          
+          finalPrice = finalPrice - discount;
+          appliedPromoId = promo.id;
+          appliedDiscountAmount = discount;
+        }
+      } catch (err) {
+        console.error("Promo calculation error:", err);
+      }
+
+      extraFields.offered_price = finalPrice;
+      extraFields.original_price = originalPrice;
+      if (appliedPromoId) {
+        extraFields.promo_id = appliedPromoId;
+        extraFields.discount_amount = appliedDiscountAmount;
+      }
+    }
 
     const updatedBooking = await CharterModel.updateStatus(id, nextStatus, extraFields);
 

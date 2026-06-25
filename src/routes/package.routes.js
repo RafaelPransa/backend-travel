@@ -209,4 +209,8 @@ router.put('/shipments/:id/status', authenticate, authorize('driver', 'super_adm
  */
 router.get('/history', authenticate, authorize('customer'), packageController.getPackageHistory);
 
+// Supaya endpoint frontend konsisten: /api/package/bookings/:id/cancel
+router.put('/bookings/:id/cancel', authenticate, authorize('customer'), packageController.cancelBooking);
+router.delete('/bookings/:id', authenticate, authorize('customer'), packageController.deleteBooking);
+
 module.exports = router;

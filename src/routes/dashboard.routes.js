@@ -121,4 +121,6 @@ router.get('/metrics', dashboardController.getDashboardMetrics);
  */
 router.get('/active-duties', dashboardController.getActiveDuties);
 
+router.get('/recent-bookings', dashboardController.getRecentBookings);
+
 module.exports = router;

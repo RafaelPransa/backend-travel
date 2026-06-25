@@ -1,6 +1,12 @@
 const db = require('../config/db');
 
 const createRequest = async (data) => {
+  // Auto-alokasi unit
+  if (!data.fleet_id) {
+    const availableFleet = await db('fleets').where({ status: 'available' }).first();
+    data.fleet_id = availableFleet ? availableFleet.id : null;
+  }
+  
   const [booking] = await db('charter_bookings').insert(data).returning('*');
   return booking;
 };
@@ -49,6 +55,7 @@ const uploadPaymentProof = async (charter_id, user_id, file_url) => {
     .whereIn('status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
     .update({
       payment_proof_url: file_url,
+      payment_method: 'cashless',
       status: 'menunggu_konfirmasi' // Kembali ke konfirmasi admin setelah bukti diunggah
     })
     .returning('*');
