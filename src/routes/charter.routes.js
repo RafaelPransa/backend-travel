@@ -234,7 +234,7 @@ router.put('/:id/verify', authenticate, authorize('super_admin'), validate(admin
  *     security:
  *       - bearerAuth: []
  */
-// router.put('/request/:id/payment-method', authenticate, authorize('customer'), charterController.updatePaymentMethod);
+router.put('/request/:id/payment-method', authenticate, authorize('customer'), charterController.updatePaymentMethod);
 
 // Supaya endpoint frontend konsisten: /api/charter/bookings/:id/cancel
 // router.put('/bookings/:id/cancel', authenticate, authorize('customer'), charterController.cancelBooking);

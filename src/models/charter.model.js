@@ -63,10 +63,26 @@ const uploadPaymentProof = async (charter_id, user_id, file_url) => {
   return updated;
 };
 
+const updatePaymentMethod = async (charter_id, user_id, payment_method) => {
+  const updateData = { payment_method };
+  if (payment_method === 'cash') {
+    updateData.status = 'disetujui';
+  }
+
+  const [updated] = await db('charter_bookings')
+    .where({ id: charter_id, user_id })
+    .whereIn('status', ['menunggu_pembayaran'])
+    .update(updateData)
+    .returning('*');
+  
+  return updated;
+};
+
 module.exports = {
   createRequest,
   getHistory,
   updateStatus,
   getById,
-  uploadPaymentProof
+  uploadPaymentProof,
+  updatePaymentMethod
 };

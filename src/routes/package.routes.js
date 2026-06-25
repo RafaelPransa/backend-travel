@@ -212,5 +212,6 @@ router.get('/history', authenticate, authorize('customer'), packageController.ge
 // Supaya endpoint frontend konsisten: /api/package/bookings/:id/cancel
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), packageController.cancelBooking);
 router.delete('/bookings/:id', authenticate, authorize('customer'), packageController.deleteBooking);
+router.put('/bookings/:id/payment-method', authenticate, authorize('customer'), packageController.updatePaymentMethod);
 
 module.exports = router;

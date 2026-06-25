@@ -218,11 +218,45 @@ const deleteBooking = async (req, res) => {
   }
 };
 
+const updatePaymentMethod = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const booking_id = req.params.id;
+    const { payment_method } = req.body;
+
+    if (!payment_method || !['cash', 'cashless'].includes(payment_method)) {
+      return res.status(400).json({ status: 'error', message: 'Metode pembayaran tidak valid' });
+    }
+
+    const updatedBooking = await PackageModel.updatePaymentMethod(booking_id, user_id, payment_method);
+
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat diubah'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Metode pembayaran berhasil diubah',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error updatePaymentMethod:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengubah metode pembayaran'
+    });
+  }
+};
+
 module.exports = {
   createShipment,
   trackPackage,
   updatePackageStatus,
   getPackageHistory,
   cancelBooking,
-  deleteBooking
+  deleteBooking,
+  updatePaymentMethod
 };
