@@ -1,4 +1,5 @@
 const PackageModel = require('../models/package.model');
+const { isJabodetabek } = require('../utils/jabodetabek');
 
 const createShipment = async (req, res) => {
   try {
@@ -15,7 +16,8 @@ const createShipment = async (req, res) => {
       seat_qty,
       payment_method,
       route_id,
-      total_price
+      total_price,
+      receiver_kecamatan
     } = req.body;
 
     const data = {
@@ -35,6 +37,16 @@ const createShipment = async (req, res) => {
       transaction_status: 'menunggu_konfirmasi',
       status: 'received'
     };
+    
+    if (receiver_kecamatan && isJabodetabek(receiver_kecamatan)) {
+      data.total_price = 250000;
+      data.original_price = 250000;
+      data.transaction_status = 'menunggu_pembayaran';
+      // status 'received' means the package is received by the system? Keep it as received or menunggu_pembayaran? 
+      // Usually status is general tracking status, transaction_status is payment status.
+      // Wait, in charter we map transaction_status? 
+      data.status = 'menunggu_pembayaran'; // Based on requirements: "langsung memindahkan status ke menunggu pembayaran"
+    }
     
     const { departure_date } = req.body;
     if (departure_date) {

@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const { isJabodetabek } = require('../utils/jabodetabek');
+const { getAvailableFleets } = require('../helpers/fleetAvailability');
 
 // --- DYNAMIC SEAT & FLEET LOGIC ---
 const calculateLoad = async (route_id, dateString) => {
@@ -47,14 +49,17 @@ const calculateLoad = async (route_id, dateString) => {
     }
   });
 
-  // 3. Evaluasi Unit secara dinamis dari tabel fleets
-  let unit = 'Tidak ada armada aktif';
+  // 3. Evaluasi Unit secara dinamis dari armada yang TERSEDIA hari itu
+  let unit = 'Tidak ada armada tersedia';
   let max_capacity = 0;
 
   try {
-    const availableFleets = await db('fleets').where('status', 'active').orderBy('seat_capacity', 'asc');
+    const availableFleets = await getAvailableFleets(null, dateString, dateString);
     
     if (availableFleets.length > 0) {
+      // Sort berdasarkan kapasitas terkecil ke terbesar
+      availableFleets.sort((a, b) => a.seat_capacity - b.seat_capacity);
+      
       // Cari armada terkecil yang bisa memuat used_seats
       const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
       
@@ -69,8 +74,8 @@ const calculateLoad = async (route_id, dateString) => {
         max_capacity = largestFleet.seat_capacity * neededUnits;
       }
     } else {
-      // Fallback jika belum ada armada yang diatur admin
-      unit = 'Tidak ada armada aktif';
+      // Fallback jika semua armada disewa/dipakai layanan lain
+      unit = 'Armada Penuh/Disewa';
       max_capacity = 0;
     }
   } catch (err) {
@@ -112,15 +117,26 @@ const getSchedulesAvailability = async (route_id) => {
     nextDate.setDate(today.getDate() + i);
     
     if (allowedDays.includes(nextDate.getDay())) {
-      const dateString = nextDate.toISOString().split('T')[0];
+      // Pastikan format YYYY-MM-DD menggunakan tanggal lokal, bukan UTC
+      const yyyy = nextDate.getFullYear();
+      const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(nextDate.getDate()).padStart(2, '0');
+      const dateString = `${yyyy}-${mm}-${dd}`;
+        
+      // Cek ketersediaan armada global
+      const availableFleets = await getAvailableFleets(null, dateString, dateString);
+        
       const loadInfo = await calculateLoad(route_id, dateString);
-      
-      dates.push({
-        date: dateString,
-        departure_time: nextDate.toISOString(),
-        ...loadInfo,
-        base_price: route.base_price
-      });
+        
+      // Tampilkan hanya jika masih ada kursi kosong di jadwal (kalau ada jadwal) ATAU armada tersedia
+      if (loadInfo.status !== 'full' && (availableFleets.length > 0 || loadInfo.max_capacity > 0)) {
+        dates.push({
+          date: dateString,
+          departure_time: nextDate.toISOString(),
+          ...loadInfo,
+          base_price: route.base_price
+        });
+      }
     }
   }
   return dates;
@@ -245,6 +261,7 @@ const createBooking = async (data) => {
   
   let finalPrice = originalPrice;
   let appliedPromoId = data.promo_id || null;
+  let promoObj = null;
   
   try {
     let promoQuery = db('promotions').where('is_active', true);
@@ -255,6 +272,7 @@ const createBooking = async (data) => {
     if (promo) {
       if (promo.target_service.includes('all') || promo.target_service.includes('travel')) {
         appliedPromoId = promo.id;
+        promoObj = promo;
         const discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
         finalPrice = finalPrice - discount;
       } else {
@@ -272,6 +290,26 @@ const createBooking = async (data) => {
     originalPrice += 250000.00; // Tambahkan juga ke harga asli
   }
 
+  let finalBookingStatus = 'menunggu_konfirmasi';
+  let isJab = false;
+  if (data.tujuan_kecamatan && isJabodetabek(data.tujuan_kecamatan)) {
+    isJab = true;
+    finalBookingStatus = 'menunggu_pembayaran';
+    originalPrice = 250000;
+    
+    finalPrice = 250000;
+    if (isBaggageCharge) {
+        finalPrice += 250000;
+        originalPrice += 250000;
+    }
+    
+    if (appliedPromoId && promoObj) {
+      // Re-apply discount if there was a promo
+      const discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+      finalPrice = finalPrice - discount;
+    }
+  }
+
   const [booking] = await db('travel_bookings').insert({
     user_id: data.user_id,
     schedule_id: schedule_id,
@@ -283,7 +321,7 @@ const createBooking = async (data) => {
     baggage_weight: data.baggage_weight || null,
     baggage_dimension: data.baggage_dimension || null,
     is_baggage_charge: isBaggageCharge,
-    booking_status: 'menunggu_pembayaran', // Sesuai dengan alur locked 10 menit
+    booking_status: finalBookingStatus, // Sesuai dengan alur locked 10 menit jika jabodetabek, else konfirmasi
     locked_until: db.raw("NOW() + INTERVAL '10 minutes'"),
     price: finalPrice,
     original_price: originalPrice,

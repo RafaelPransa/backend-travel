@@ -17,6 +17,32 @@ const calculateDays = (start, end) => {
 
 const { getAvailableFleets } = require('../helpers/fleetAvailability');
 
+const checkAvailability = async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    if (!start_date || !end_date) {
+      return res.status(400).json({ status: 'error', message: 'Parameter start_date dan end_date wajib diisi' });
+    }
+
+    // Ambil semua armada yang tersedia (null carType untuk ambil semua)
+    const availableFleets = await getAvailableFleets(null, start_date, end_date);
+    
+    // Group by car_type
+    const availabilityByCarType = {};
+    availableFleets.forEach(f => {
+      availabilityByCarType[f.car_type] = true;
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      data: availabilityByCarType
+    });
+  } catch (error) {
+    console.error('Error checkAvailability:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengecek ketersediaan' });
+  }
+};
+
 const requestCharter = async (req, res) => {
   try {
     const { 
@@ -259,10 +285,65 @@ const updatePaymentMethod = async (req, res) => {
   }
 };
 
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const updatedBooking = await CharterModel.cancelBooking(id, userId);
+    
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dibatalkan'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Pesanan berhasil dibatalkan',
+      data: updatedBooking
+    });
+  } catch (error) {
+    if (error.code === 'CANCELLATION_TIMEOUT') {
+      return res.status(400).json({ status: 'error', message: error.message });
+    }
+    console.error('Error cancelBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal membatalkan pesanan charter' });
+  }
+};
+
+const deleteBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await CharterModel.deleteBooking(id, userId);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dihapus'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Riwayat pesanan berhasil dihapus'
+    });
+  } catch (error) {
+    console.error('Error deleteBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal menghapus pesanan charter' });
+  }
+};
+
 module.exports = {
+  checkAvailability,
   requestCharter,
   getCharterHistory,
   verifyCharterPayment,
   uploadPaymentProof,
-  updatePaymentMethod
+  updatePaymentMethod,
+  cancelBooking,
+  deleteBooking
 };

@@ -71,19 +71,19 @@ const deleteBooking = async (booking_id, user_id) => {
 };
 
 const updatePaymentMethod = async (shipment_id, user_id, payment_method) => {
-  const updateData = { payment_method };
-  if (payment_method === 'cash') {
-    updateData.status = 'menunggu_kurir'; // Wait, let's just use 'menunggu_kurir' as an example? Wait, let's check package statuses first. Let's just set it to 'menunggu_kurir' for now.
-  }
-
-  const [updated] = await db('package_shipments')
-    .where({ id: shipment_id, user_id })
-    .whereIn('status', ['menunggu_pembayaran'])
-    .update(updateData)
-    .returning('*');
+    const updateData = { payment_method };
+    if (payment_method === 'cash') {
+      updateData.transaction_status = 'selesai'; 
+    }
   
-  return updated;
-};
+    const [updated] = await db('package_shipments')
+      .where({ id: shipment_id, user_id })
+      .whereIn('transaction_status', ['menunggu_pembayaran'])
+      .update(updateData)
+      .returning('*');
+    
+    return updated;
+  };
 
 module.exports = {
   createShipment,

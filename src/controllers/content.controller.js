@@ -45,11 +45,11 @@ const getRoutes = async (req, res) => {
 
 const getFleets = async (req, res) => {
   try {
-    // Menghitung ketersediaan armada charter (hanya berdasarkan status active)
-    const activeFleets = await db('fleets').where('status', 'active');
+    // Ambil semua armada agar muncul di UI, ketersediaan dinamis akan men-disable yang tidak aktif
+    const allFleets = await db('fleets');
 
     const fleetStats = {};
-    activeFleets.forEach(fleet => {
+    allFleets.forEach(fleet => {
       if (!fleetStats[fleet.car_type]) {
         fleetStats[fleet.car_type] = {
           car_type: fleet.car_type,
@@ -62,7 +62,9 @@ const getFleets = async (req, res) => {
         };
       }
       fleetStats[fleet.car_type].total_units += 1;
-      fleetStats[fleet.car_type].available_units += 1; // Selalu tersedia jika statusnya active
+      if (fleet.status === 'active') {
+        fleetStats[fleet.car_type].available_units += 1;
+      }
     });
 
     const data = Object.values(fleetStats);

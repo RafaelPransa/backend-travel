@@ -59,7 +59,7 @@ const getSchedules = async (req, res) => {
 
 const createBooking = async (req, res) => {
   try {
-    const { schedule_id, route_id, departure_date, seat_number, pickup_address, dropoff_address, payment_method, baggage_description, baggage_weight, baggage_dimension, promo_id } = req.body;
+    const { schedule_id, route_id, departure_date, seat_number, pickup_address, dropoff_address, payment_method, baggage_description, baggage_weight, baggage_dimension, promo_id, tujuan_kecamatan } = req.body;
     const user_id = req.user.id;
 
     // Untuk booking baru bisa jadi belum ada schedule_id
@@ -92,7 +92,8 @@ const createBooking = async (req, res) => {
       baggage_description,
       baggage_weight,
       baggage_dimension,
-      promo_id
+      promo_id,
+      tujuan_kecamatan
     });
 
     return res.status(201).json({

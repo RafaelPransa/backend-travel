@@ -22,7 +22,7 @@ const { uploadPayment } = require('../middlewares/upload.middleware');
  *         required: true
  *         description: Tanggal yang ingin dicek (YYYY-MM-DD)
  */
-// router.get('/availability', charterController.checkAvailability);
+router.get('/availability', charterController.checkAvailability);
 
 /**
  * @openapi
@@ -237,7 +237,7 @@ router.put('/:id/verify', authenticate, authorize('super_admin'), validate(admin
 router.put('/request/:id/payment-method', authenticate, authorize('customer'), charterController.updatePaymentMethod);
 
 // Supaya endpoint frontend konsisten: /api/charter/bookings/:id/cancel
-// router.put('/bookings/:id/cancel', authenticate, authorize('customer'), charterController.cancelBooking);
-// router.delete('/bookings/:id', authenticate, authorize('customer'), charterController.deleteBooking);
+router.put('/bookings/:id/cancel', authenticate, authorize('customer'), charterController.cancelBooking);
+router.delete('/bookings/:id', authenticate, authorize('customer'), charterController.deleteBooking);
 
 module.exports = router;

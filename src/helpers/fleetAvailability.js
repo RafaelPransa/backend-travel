@@ -29,7 +29,8 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
       'menunggu_konfirmasi', 
       'dibayar', 
       'disetujui', 
-      'dalam_penjemputan'
+      'dalam_penjemputan',
+      'selesai'
     ])
     .whereRaw('? <= return_date AND ? >= departure_date', [departureDate, returnDate]);
     
@@ -44,9 +45,9 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   
   activeCharters.forEach(charter => {
     if (charter.status === 'menunggu_pembayaran') {
-      // Jika created_at lebih dari 10 menit yang lalu, maka anggap sudah expired (tidak terkunci)
-      const createdAt = new Date(charter.created_at);
-      const diffMinutes = (now - createdAt) / (1000 * 60);
+      // Kunci 10 menit sejak admin mengatur harga (updated_at)
+      const updatedAt = new Date(charter.updated_at || charter.created_at);
+      const diffMinutes = (now - updatedAt) / (1000 * 60);
       if (diffMinutes <= 10) {
         lockedFleetIds.push(charter.fleet_id);
       }
@@ -67,10 +68,19 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   
   const scheduleFleetIds = activeSchedules.map(s => s.fleet_id);
 
-  // 4. Gabungkan fleet_id yang sedang sibuk
-  const busyFleetIds = [...new Set([...lockedFleetIds, ...scheduleFleetIds])];
+  // 4. Ambil armada yang sedang digunakan oleh Paket (Package Shipments)
+  let packageQuery = db('package_shipments')
+    .whereIn('fleet_id', fleetIds)
+    .whereIn('status', ['received', 'in_transit', 'menunggu_penjemputan', 'dalam_penjemputan'])
+    .whereRaw('DATE(created_at) >= ? AND DATE(created_at) <= ?', [departureDate, returnDate]);
+    
+  const activePackages = await packageQuery;
+  const packageFleetIds = activePackages.map(p => p.fleet_id);
 
-  // 5. Filter armada yang benar-benar kosong
+  // 5. Gabungkan fleet_id yang sedang sibuk
+  const busyFleetIds = [...new Set([...lockedFleetIds, ...scheduleFleetIds, ...packageFleetIds])];
+
+  // 6. Filter armada yang benar-benar kosong
   const availableFleets = activeFleets.filter(fleet => !busyFleetIds.includes(fleet.id));
 
   return availableFleets;
