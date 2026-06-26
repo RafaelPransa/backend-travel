@@ -37,7 +37,7 @@ const cancelBooking = async (booking_id, user_id) => {
 
   if (!shipment) return null;
 
-  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'pending'].includes(shipment.status)) {
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'pending', 'menunggu_konfirmasi', 'menunggu_harga'].includes(shipment.status)) {
     return null;
   }
 
@@ -54,12 +54,12 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
 
-  const [updated] = await db('package_shipments')
+  const [deleted] = await db('package_shipments')
     .where({ id: booking_id, user_id })
-    .update({ status: 'dibatalkan' })
+    .del()
     .returning('*');
     
-  return updated;
+  return deleted;
 };
 
 const deleteBooking = async (booking_id, user_id) => {

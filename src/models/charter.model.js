@@ -102,12 +102,12 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
 
-  const [updated] = await db('charter_bookings')
+  const [deleted] = await db('charter_bookings')
     .where({ id: booking_id, user_id })
-    .update({ status: 'dibatalkan' })
+    .del()
     .returning('*');
     
-  return updated;
+  return deleted;
 };
 
 const deleteBooking = async (booking_id, user_id) => {

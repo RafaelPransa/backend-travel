@@ -444,12 +444,12 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
 
-  const [updated] = await db('travel_bookings')
+  const [deleted] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
-    .update({ booking_status: 'dibatalkan' })
+    .del()
     .returning('*');
     
-  if (updated) {
+  if (deleted) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
     const activeBookings = await db('travel_bookings')
       .where('schedule_id', booking.schedule_id)
@@ -468,7 +468,7 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
     
-  return updated;
+  return deleted;
 };
 
 const deleteBooking = async (booking_id, user_id) => {
