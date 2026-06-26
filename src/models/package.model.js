@@ -23,10 +23,14 @@ const updateStatus = async (id, status, proof_of_delivery_url = null) => {
 
 const getPackageHistory = async (user_id) => {
   return db('package_shipments')
-    .select('*')
-    .where('user_id', user_id)
-    .where('is_hidden', false)
-    .orderBy('created_at', 'desc');
+    .leftJoin('schedules', function() {
+      this.on('package_shipments.fleet_id', '=', 'schedules.fleet_id')
+          .andOn(db.raw('DATE(schedules.departure_time) >= DATE(package_shipments.created_at)'));
+    })
+    .select('package_shipments.*', 'schedules.status as schedule_status')
+    .where('package_shipments.user_id', user_id)
+    .where('package_shipments.is_hidden', false)
+    .orderBy('package_shipments.created_at', 'desc');
 };
 
 const cancelBooking = async (booking_id, user_id) => {

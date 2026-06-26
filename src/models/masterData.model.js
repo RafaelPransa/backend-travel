@@ -180,7 +180,7 @@ const getPackageShipments = async () => {
       'package_shipments.dimension',
       'package_shipments.status',
       'package_shipments.transaction_status',
-      'package_shipments.total_price as price',
+      'package_shipments.original_price as price',
       'package_shipments.payment_method',
       'package_shipments.payment_proof_url',
       'package_shipments.created_at',

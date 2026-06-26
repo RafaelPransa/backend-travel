@@ -72,16 +72,18 @@ const createShipment = async (req, res) => {
       package_description,
       weight,
       dimension,
-      seat_qty: seat_qty || 1,
       payment_method,
       route_id: route_id || null,
-      total_price: total_price || null,
       transaction_status: 'menunggu_konfirmasi',
-      status: 'received'
+      status: 'received',
+      waybill_number: 'PKT-' + Date.now().toString().slice(-6) + '-' + Math.random().toString(36).substring(2, 6).toUpperCase()
     };
     
+    if (req.user && req.user.id) {
+      data.user_id = req.user.id;
+    }
+    
     if (receiver_kecamatan && isJabodetabek(receiver_kecamatan)) {
-      data.total_price = 250000;
       data.original_price = 250000;
       data.transaction_status = 'menunggu_pembayaran';
       // status 'received' means the package is received by the system? Keep it as received or menunggu_pembayaran? 
@@ -140,7 +142,6 @@ const createShipment = async (req, res) => {
         });
       }
 
-      data.departure_date = departure_date;
       data.fleet_id = assignedFleetId;
     }
     
