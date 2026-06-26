@@ -116,7 +116,7 @@ const verifyTravelBooking = async (booking_id) => {
   if (booking.booking_status === 'menunggu_konfirmasi') {
     if (booking.payment_proof_url) {
       // Kasus 1: Bukti bayar sudah diunggah, admin memverifikasi pembayaran (Lunas)
-      updatePayload = { booking_status: 'dalam_penjemputan' };
+      updatePayload = { booking_status: 'dibayar' };
     } else {
       // Kasus 2: Baru diajukan oleh user, admin mengonfirmasi pesanan tersebut
       if (booking.payment_method === 'cashless') {
@@ -124,8 +124,8 @@ const verifyTravelBooking = async (booking_id) => {
         const locked_until = new Date(Date.now() + 10 * 60000);
         updatePayload = { booking_status: 'menunggu_pembayaran', locked_until };
       } else {
-        // Jika cash, langsung ubah ke dalam_penjemputan (terkonfirmasi)
-        updatePayload = { booking_status: 'dalam_penjemputan' };
+        // Jika cash, langsung ubah ke dibayar (terkonfirmasi)
+        updatePayload = { booking_status: 'dibayar' };
       }
     }
   } else {
