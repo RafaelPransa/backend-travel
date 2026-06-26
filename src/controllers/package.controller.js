@@ -338,6 +338,40 @@ const updatePaymentMethod = async (req, res) => {
   }
 };
 
+const uploadPaymentProof = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const booking_id = req.params.id;
+    
+    if (!req.file) {
+      return res.status(400).json({ status: 'error', message: 'File bukti pembayaran harus diunggah' });
+    }
+
+    const file_url = `/uploads/payments/${req.file.filename}`;
+
+    const updatedBooking = await PackageModel.uploadPaymentProof(booking_id, user_id, file_url);
+
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat diubah'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Bukti pembayaran berhasil diunggah',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error uploadPaymentProof:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengunggah bukti pembayaran'
+    });
+  }
+};
+
 module.exports = {
   createShipment,
   trackPackage,
@@ -346,5 +380,6 @@ module.exports = {
   cancelBooking,
   deleteBooking,
   updatePaymentMethod,
+  uploadPaymentProof,
   checkAvailability
 };

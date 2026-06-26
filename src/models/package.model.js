@@ -85,6 +85,19 @@ const updatePaymentMethod = async (shipment_id, user_id, payment_method) => {
     return updated;
   };
 
+const uploadPaymentProof = async (shipment_id, user_id, file_url) => {
+  const [updated] = await db('package_shipments')
+    .where({ id: shipment_id, user_id })
+    .whereIn('transaction_status', ['menunggu_pembayaran', 'menunggu_konfirmasi']) 
+    .update({
+      payment_proof_url: file_url,
+      payment_method: 'cashless',
+      transaction_status: 'menunggu_konfirmasi'
+    })
+    .returning('*');
+  return updated;
+};
+
 module.exports = {
   createShipment,
   findByWaybill,
@@ -92,5 +105,6 @@ module.exports = {
   getPackageHistory,
   cancelBooking,
   deleteBooking,
-  updatePaymentMethod
+  updatePaymentMethod,
+  uploadPaymentProof
 };

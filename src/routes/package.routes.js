@@ -3,7 +3,7 @@ const router = express.Router();
 const packageController = require('../controllers/package.controller');
 const { validate, packageShipmentSchema, packageStatusSchema } = require('../middlewares/validation.middleware');
 const { authenticate, optionalAuth, authorize } = require('../middlewares/auth.middleware');
-const { uploadPackage } = require('../middlewares/upload.middleware');
+const { uploadPackage, uploadPayment } = require('../middlewares/upload.middleware');
 
 /**
  * @openapi
@@ -246,5 +246,40 @@ router.get('/history', authenticate, authorize('customer'), packageController.ge
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), packageController.cancelBooking);
 router.delete('/bookings/:id', authenticate, authorize('customer'), packageController.deleteBooking);
 router.put('/bookings/:id/payment-method', authenticate, authorize('customer'), packageController.updatePaymentMethod);
+
+/**
+ * @openapi
+ * /api/packages/shipments/{id}/payment-proof:
+ *   post:
+ *     summary: Unggah Bukti Pembayaran Paket (Cashless)
+ *     description: Customer mengunggah foto bukti transfer untuk pembayaran paket.
+ *     tags:
+ *       - Package Shipment (Kurir) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - proofImage
+ *             properties:
+ *               proofImage:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Bukti pembayaran berhasil diunggah
+ */
+router.post('/shipments/:id/payment-proof', authenticate, authorize('customer'), uploadPayment.single('payment_proof'), packageController.uploadPaymentProof);
 
 module.exports = router;
