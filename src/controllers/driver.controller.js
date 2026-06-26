@@ -48,6 +48,35 @@ const updateScheduleStatus = async (req, res) => {
   }
 };
 
+const updateTravelBookingStatus = async (req, res) => {
+  try {
+    const driver_id = req.user.id;
+    const { id } = req.params;
+    const { status } = req.body; 
+
+    const updated = await DriverModel.updateTravelBookingStatus(id, driver_id, status);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Penumpang tidak ditemukan atau Anda tidak berwenang memperbarui status ini'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Status penumpang berhasil diperbarui menjadi '${status}'`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error updateTravelBookingStatus:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status penumpang'
+    });
+  }
+};
+
 // ============================================================================
 // MIGRATED FLEET & MAINTENANCE HANDLERS (FROM MECHANIC)
 // ============================================================================
@@ -240,6 +269,7 @@ const verifyMaintenanceLog = async (req, res) => {
 module.exports = {
   getMySchedules,
   updateScheduleStatus,
+  updateTravelBookingStatus,
   getFleets,
   updateFleetStatus,
   getMaintenanceLogs,

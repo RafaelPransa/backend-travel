@@ -78,6 +78,42 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
 
 /**
  * @openapi
+ * /api/driver/schedules/bookings/{id}/status:
+ *   put:
+ *     summary: Memperbarui Status Penumpang (Driver Only)
+ *     description: Driver memperbarui status penumpang (dalam_penjemputan, dalam_perjalanan, selesai).
+ *     tags:
+ *       - Driver Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Status penumpang berhasil diperbarui
+ */
+router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), driverController.updateTravelBookingStatus);
+
+
+/**
+ * @openapi
  * /api/driver/expenses:
  *   post:
  *     summary: Mengunggah Pengeluaran Operasional (Driver Only)

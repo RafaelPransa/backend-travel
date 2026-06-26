@@ -124,6 +124,27 @@ const updateScheduleStatus = async (id, driver_id, status) => {
   return updated;
 };
 
+const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) => {
+  // Verifikasi bahwa booking ini milik jadwal yang dipegang oleh driver
+  const booking = await db('travel_bookings')
+    .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+    .where('travel_bookings.id', booking_id)
+    .where('schedules.driver_id', driver_id)
+    .select('travel_bookings.id')
+    .first();
+
+  if (!booking) {
+    return null; // Tidak ditemukan atau bukan haknya
+  }
+
+  const [updated] = await db('travel_bookings')
+    .where({ id: booking_id })
+    .update({ booking_status })
+    .returning('*');
+    
+  return updated;
+};
+
 // ============================================================================
 // MIGRATED FLEET & MAINTENANCE METHODS (FROM MECHANIC)
 // ============================================================================
@@ -210,6 +231,9 @@ const getDriverExpenses = async (driver_id) => {
 module.exports = {
   getAssignedSchedules,
   updateScheduleStatus,
+  updateTravelBookingStatus,
+  
+  // Fleet & Maintenance
   getFleets,
   updateFleetStatus,
   getMaintenanceLogs,
