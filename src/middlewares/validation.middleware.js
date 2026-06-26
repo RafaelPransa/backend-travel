@@ -100,6 +100,8 @@ const adminValidationSchemas = {
   banner: z.object({
     title: z.string().min(1),
     image_url: z.string().optional().or(z.literal('')),
+    badge_text: z.string().optional().or(z.literal('')),
+    description: z.string().optional().or(z.literal('')),
     is_active: z.boolean().or(z.enum(['true', 'false'])).optional()
   }),
   destination: z.object({
