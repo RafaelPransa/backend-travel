@@ -27,6 +27,8 @@ const calculateLoad = async (route_id, dateString) => {
     console.error("Error fetching available fleets in calculateLoad:", err);
   }
 
+  let extraSeatsCount = 0;
+
   if (schedule) {
     // 1. Hitung beban dari Travel Reguler
     const travelBookings = await db('travel_bookings')
@@ -43,10 +45,14 @@ const calculateLoad = async (route_id, dateString) => {
       used_seats += 1;
       occupied_seats_list.push(b.seat_number);
       if (b.baggage_weight >= 60 || b.baggage_dimension === 'super_besar') {
-        used_seats += 1; 
+        extraSeatsCount += 2; 
+      } else if (b.baggage_weight >= 30 || b.baggage_dimension === 'besar') {
+        extraSeatsCount += 1;
       }
     });
   }
+
+  used_seats += extraSeatsCount;
 
   // 2. Hitung beban dari Paket (Package Shipments)
   let packagesQuery = db('package_shipments')
@@ -107,6 +113,18 @@ const calculateLoad = async (route_id, dateString) => {
     // Fallback jika semua armada disewa/dipakai layanan lain
     unit = 'Armada Penuh/Disewa';
     max_capacity = 0;
+  }
+
+  // Secara dinamis memblokir kursi untuk barang bawaan penumpang dari kursi paling belakang
+  if (extraSeatsCount > 0 && max_capacity > 0) {
+    let blocked = 0;
+    for (let i = max_capacity; i >= 1; i--) {
+      if (!occupied_seats_list.includes(i)) {
+        occupied_seats_list.push(i);
+        blocked++;
+        if (blocked === extraSeatsCount) break;
+      }
+    }
   }
 
   let status = used_seats >= max_capacity ? 'full' : 'available';
@@ -224,7 +242,26 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
                 .andWhere('locked_until', '>', db.fn.now());
           });
     }).first();
-  return !existingBooking;
+    
+  if (existingBooking) return false;
+
+  // Cek apakah kursi tersebut di-lock secara dinamis untuk alokasi barang bawaan penumpang lain
+  const schedule = await db('schedules').where('id', schedule_id).first();
+  if (schedule) {
+    const d = new Date(schedule.departure_time);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dateString = `${yyyy}-${mm}-${dd}`;
+    
+    // Gunakan calculateLoad untuk mendapatkan daftar lengkap kursi yang di-lock (booking + baggage + paket)
+    const loadInfo = await calculateLoad(schedule.route_id, dateString);
+    if (loadInfo.occupied_seats_list.includes(parseInt(seat_number, 10))) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 const createBooking = async (data) => {
