@@ -775,6 +775,114 @@ crudRoute('/institutional-expenses', 'institutional_expenses', adminValidationSc
  */
 
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
+
+/**
+ * @openapi
+ * /api/admin/master/schedules/{id}/assign:
+ *   put:
+ *     summary: Menugaskan Driver & Unit Armada ke Jadwal (Super Admin)
+ *     tags:
+ *       - Admin Operational Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Schedule ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fleet_id
+ *               - driver_id
+ *             properties:
+ *               fleet_id:
+ *                 type: string
+ *                 format: uuid
+ *               driver_id:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       200:
+ *         description: Driver dan armada berhasil ditugaskan ke jadwal
+ */
+
+/**
+ * @openapi
+ * /api/admin/master/travel-bookings:
+ *   get:
+ *     summary: Mendapatkan Semua Antrean Booking Tiket Travel (Super Admin)
+ *     tags:
+ *       - Admin Operational Area
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data tiket booking travel
+ * 
+ * /api/admin/master/travel-bookings/{id}/verify:
+ *   put:
+ *     summary: Verifikasi Pembayaran Tiket Travel (Super Admin)
+ *     tags:
+ *       - Admin Operational Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Tiket travel berhasil diverifikasi (lunas)
+ * 
+ * /api/admin/master/travel-bookings/{id}/status:
+ *   put:
+ *     summary: Persetujuan, Penolakan, dan Update Data Tiket Travel (Super Admin)
+ *     tags:
+ *       - Admin Operational Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               booking_status:
+ *                 type: string
+ *                 enum: [menunggu_konfirmasi, menunggu_pembayaran, selesai, dibatalkan, ditolak]
+ *               eta:
+ *                 type: string
+ *                 example: "08:30"
+ *               price:
+ *                 type: number
+ *                 example: 200000
+ *     responses:
+ *       200:
+ *         description: Tiket travel berhasil diperbarui
+ */
+
+// Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
 
 // Fitur Spesifik: Konfirmasi Keberangkatan Massal
@@ -784,5 +892,6 @@ router.put('/schedules/:id/depart', masterController.departSchedule);
 router.get('/travel-bookings', masterController.getTravelBookings);
 router.put('/travel-bookings/:id/verify', masterController.verifyTravelBooking);
 router.put('/travel-bookings/:id/status', masterController.updateTravelBookingStatus);
+router.delete('/travel-bookings/:id', masterController.deleteTravelBooking);
 
 module.exports = router;

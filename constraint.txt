@@ -1,0 +1,1 @@
+{"pg_get_constraintdef":"CHECK (((booking_status)::text = ANY ((ARRAY['menunggu_konfirmasi'::character varying, 'menunggu_pembayaran'::character varying, 'selesai'::character varying, 'dibatalkan'::character varying, 'ditolak'::character varying, 'selesai_final'::character varying, 'dalam_penjemputan'::character varying])::text[])))"}

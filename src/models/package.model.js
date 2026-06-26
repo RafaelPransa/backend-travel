@@ -25,6 +25,7 @@ const getPackageHistory = async (user_id) => {
   return db('package_shipments')
     .select('*')
     .where('user_id', user_id)
+    .where('is_hidden', false)
     .orderBy('created_at', 'desc');
 };
 
@@ -63,11 +64,11 @@ const cancelBooking = async (booking_id, user_id) => {
 };
 
 const deleteBooking = async (booking_id, user_id) => {
-  const deletedRows = await db('package_shipments')
+  const updatedRows = await db('package_shipments')
     .where({ id: booking_id, user_id })
     .whereIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
-    .del();
-  return deletedRows > 0;
+    .update({ is_hidden: true });
+  return updatedRows > 0;
 };
 
 const updatePaymentMethod = async (shipment_id, user_id, payment_method) => {

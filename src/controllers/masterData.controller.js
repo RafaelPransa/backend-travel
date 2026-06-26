@@ -216,6 +216,7 @@ const verifyTravelBooking = async (req, res) => {
 };
 
 const updateTravelBookingStatus = async (req, res) => {
+//... existing ...
     try {
       const { id } = req.params;
       const { booking_status, eta, price } = req.body;
@@ -384,6 +385,29 @@ const departSchedule = async (req, res) => {
   }
 };
 
+const deleteTravelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await MasterDataModel.deleteTravelBooking(id);
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan'
+      });
+    }
+    return res.status(200).json({
+      status: 'success',
+      message: 'Riwayat pesanan berhasil dihapus secara permanen'
+    });
+  } catch (error) {
+    console.error('Error deleteTravelBooking:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal menghapus riwayat pesanan'
+    });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -393,6 +417,7 @@ module.exports = {
   getTravelBookings,
   verifyTravelBooking,
   updateTravelBookingStatus,
+  deleteTravelBooking,
   getPackageShipments,
   updateUser,
   deleteUser,

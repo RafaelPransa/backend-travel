@@ -18,8 +18,7 @@ const calculateLoad = async (route_id, dateString) => {
     const travelBookings = await db('travel_bookings')
       .where('schedule_id', schedule.id)
       .where(function() {
-        this.where('booking_status', 'selesai')
-            .orWhere('booking_status', 'menunggu_konfirmasi')
+        this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
             .orWhere(function() {
               this.where('booking_status', 'menunggu_pembayaran')
                   .andWhere('locked_until', '>', db.fn.now());
@@ -96,6 +95,7 @@ const calculateLoad = async (route_id, dateString) => {
   let status = used_seats >= max_capacity ? 'full' : 'available';
 
   return {
+    id: schedule ? schedule.id : "",
     status,
     sisa_kursi: Math.max(0, max_capacity - used_seats),
     unit,
@@ -178,8 +178,7 @@ const getSchedules = async ({ date, origin, destination }) => {
   const bookings = await db('travel_bookings')
     .whereIn('schedule_id', scheduleIds)
     .where(function() {
-      this.where('booking_status', 'selesai')
-          .orWhere('booking_status', 'menunggu_konfirmasi')
+      this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
           .orWhere(function() {
             this.where('booking_status', 'menunggu_pembayaran')
                 .andWhere('locked_until', '>', db.fn.now());
@@ -202,8 +201,7 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
   const existingBooking = await db('travel_bookings')
     .where({ schedule_id, seat_number })
     .where(function() {
-      this.where('booking_status', 'selesai')
-          .orWhere('booking_status', 'menunggu_konfirmasi')
+      this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
           .orWhere(function() {
             this.where('booking_status', 'menunggu_pembayaran')
                 .andWhere('locked_until', '>', db.fn.now());
@@ -358,7 +356,7 @@ const getManifest = async (schedule_id) => {
       'travel_bookings.is_baggage_charge'
     )
     .where('travel_bookings.schedule_id', schedule_id)
-    .where('travel_bookings.booking_status', 'selesai')
+    .whereIn('travel_bookings.booking_status', ['selesai', 'dalam_penjemputan', 'dibayar'])
     .orderBy('travel_bookings.seat_number', 'asc');
 };
 
@@ -378,6 +376,7 @@ const getTravelHistory = async (user_id) => {
       'schedules.status as schedule_status'
     )
     .where('travel_bookings.user_id', user_id)
+    .where('travel_bookings.is_hidden', false)
     .orderBy('travel_bookings.created_at', 'desc');
 };
 
@@ -479,31 +478,31 @@ const deleteBooking = async (booking_id, user_id) => {
     .where('travel_bookings.user_id', user_id)
     .first();
 
-  // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
-  const deletedRows = await db('travel_bookings')
-    .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
-    .del();
-    
-  if (deletedRows > 0 && booking) {
-    // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
-    const activeBookings = await db('travel_bookings')
-      .where('schedule_id', booking.schedule_id)
-      .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
+    // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
+    const updatedRows = await db('travel_bookings')
+      .where({ id: booking_id, user_id })
+      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
+      .update({ is_hidden: true });
       
-    if (activeBookings.length === 0) {
-      const activePackages = await db('package_shipments')
-        .where('fleet_id', booking.fleet_id || null)
-        .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
-        .whereNotIn('status', ['delivered', 'cancelled']);
+    if (updatedRows > 0 && booking) {
+      // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
+      const activeBookings = await db('travel_bookings')
+        .where('schedule_id', booking.schedule_id)
+        .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
         
-      if (activePackages.length === 0) {
-        await db('schedules').where('id', booking.schedule_id).del();
+      if (activeBookings.length === 0) {
+        const activePackages = await db('package_shipments')
+          .where('fleet_id', booking.fleet_id || null)
+          .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
+          .whereNotIn('status', ['delivered', 'cancelled']);
+          
+        if (activePackages.length === 0) {
+          await db('schedules').where('id', booking.schedule_id).del();
+        }
       }
     }
-  }
-  return deletedRows > 0;
-};
+    return updatedRows > 0;
+  };
 
 module.exports = {
   calculateLoad,

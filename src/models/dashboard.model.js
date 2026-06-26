@@ -229,32 +229,34 @@ const getDashboardData = async () => {
 };
 
 const getRecentBookings = async () => {
-  const travelBooking = await db('travel_bookings')
-    .leftJoin('users', 'travel_bookings.user_id', 'users.id')
-    .leftJoin('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .leftJoin('routes', 'schedules.route_id', 'routes.id')
-    .select(
-      'travel_bookings.id',
-      'users.name as customer_name',
-      'travel_bookings.seat_number',
-      'travel_bookings.price',
-      'routes.origin as route_origin',
-      'routes.destination as route_destination'
-    )
-    .orderBy('travel_bookings.created_at', 'desc')
-    .first();
+    const travelBooking = await db('travel_bookings')
+      .leftJoin('users', 'travel_bookings.user_id', 'users.id')
+      .leftJoin('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+      .leftJoin('routes', 'schedules.route_id', 'routes.id')
+      .whereNotIn('travel_bookings.booking_status', ['selesai', 'selesai_final', 'dalam_penjemputan', 'menunggu_penjemputan', 'dibatalkan', 'ditolak'])
+      .select(
+        'travel_bookings.id',
+        'users.name as customer_name',
+        'travel_bookings.seat_number',
+        'travel_bookings.price',
+        'routes.origin as route_origin',
+        'routes.destination as route_destination'
+      )
+      .orderBy('travel_bookings.created_at', 'desc')
+      .first();
 
-  const charterBooking = await db('charter_bookings')
-    .leftJoin('users', 'charter_bookings.user_id', 'users.id')
-    .select(
-      'charter_bookings.id',
-      'users.name as customer_name',
-      'charter_bookings.car_type',
-      db.raw('COALESCE(charter_bookings.offered_price, charter_bookings.original_price, 0) as total_price'),
-      'charter_bookings.destination'
-    )
-    .orderBy('charter_bookings.created_at', 'desc')
-    .first();
+    const charterBooking = await db('charter_bookings')
+      .leftJoin('users', 'charter_bookings.user_id', 'users.id')
+      .whereNotIn('charter_bookings.status', ['selesai', 'selesai_final', 'dibatalkan', 'ditolak'])
+      .select(
+        'charter_bookings.id',
+        'users.name as customer_name',
+        'charter_bookings.car_type',
+        db.raw('COALESCE(charter_bookings.offered_price, charter_bookings.original_price, 0) as total_price'),
+        'charter_bookings.destination'
+      )
+      .orderBy('charter_bookings.created_at', 'desc')
+      .first();
 
   return {
     travel: travelBooking || null,

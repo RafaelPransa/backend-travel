@@ -115,6 +115,7 @@ const createShipment = async (req, res) => {
       // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
       const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
       let isAvailable = idleFleets.length > 0;
+      let assignedFleetId = isAvailable ? idleFleets[0].id : null;
 
       // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
       if (!isAvailable) {
@@ -126,6 +127,7 @@ const createShipment = async (req, res) => {
           const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
           if (loadInfo.status !== 'full') {
             isAvailable = true; // Ada schedule Rute yang belum penuh, Paket bisa menumpang
+            assignedFleetId = sched.fleet_id;
             break;
           }
         }
@@ -139,6 +141,7 @@ const createShipment = async (req, res) => {
       }
 
       data.departure_date = departure_date;
+      data.fleet_id = assignedFleetId;
     }
     
     // Jika ada token yang valid dari customer, kita bisa ambil user_id dari req.user opsional

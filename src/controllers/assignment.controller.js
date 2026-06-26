@@ -43,12 +43,15 @@ const getAssignments = async (req, res) => {
       // Get package_shipments
       let package_revenue = 0;
       let total_packages = 0;
-      if (sched.fleet_id && sched.departure_date) {
+      if (sched.fleet_id) {
         const depDate = new Date(sched.departure_date).toISOString().split('T')[0];
         const packages = await db('package_shipments')
           .where('fleet_id', sched.fleet_id)
-          .whereRaw('DATE(departure_date) = ?', [depDate])
-          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
+          .where(function() {
+            this.whereRaw('DATE(departure_date) <= ?', [depDate])
+                .orWhereNull('departure_date');
+          })
+          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered']);
         
         total_packages = packages.length;
         package_revenue = packages.reduce((sum, p) => sum + (parseFloat(p.total_price) || 0), 0);

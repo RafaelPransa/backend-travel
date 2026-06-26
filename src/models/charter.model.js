@@ -28,10 +28,10 @@ const getHistory = async (user_id, role) => {
     )
     .orderBy('charter_bookings.created_at', 'desc');
 
-  // Jika customer, batasi data hanya milik sendiri
-  if (role === 'customer') {
-    query.where('charter_bookings.user_id', user_id);
-  }
+    // Jika customer, batasi data hanya milik sendiri dan jangan tampilkan yang disembunyikan
+    if (role === 'customer') {
+      query.where('charter_bookings.user_id', user_id).andWhere('charter_bookings.is_hidden', false);
+    }
 
   return query;
 };
@@ -111,12 +111,12 @@ const cancelBooking = async (booking_id, user_id) => {
 };
 
 const deleteBooking = async (booking_id, user_id) => {
-  const deletedRows = await db('charter_bookings')
+  const updatedRows = await db('charter_bookings')
     .where({ id: booking_id, user_id })
     .whereIn('status', ['selesai_final', 'dibatalkan', 'ditolak'])
-    .del();
+    .update({ is_hidden: true });
     
-  return deletedRows > 0;
+  return updatedRows > 0;
 };
 
 module.exports = {
