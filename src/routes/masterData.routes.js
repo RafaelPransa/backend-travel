@@ -777,6 +777,9 @@ crudRoute('/institutional-expenses', 'institutional_expenses', adminValidationSc
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
 
+// Fitur Spesifik: Konfirmasi Keberangkatan Massal
+router.put('/schedules/:id/depart', masterController.departSchedule);
+
 // Fitur Spesifik: Verifikasi & Kelola Tiket Travel Reguler
 router.get('/travel-bookings', masterController.getTravelBookings);
 router.put('/travel-bookings/:id/verify', masterController.verifyTravelBooking);

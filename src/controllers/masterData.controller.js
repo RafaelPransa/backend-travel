@@ -35,9 +35,26 @@ const validateScheduleDay = async (routeId, departureTime) => {
 };
 
 // Generic CRUD handlers
+const { getAvailableFleets } = require('../helpers/fleetAvailability');
+
 const getRecords = (table) => async (req, res) => {
   try {
-    const records = await MasterDataModel.getTableData(table);
+    let records = await MasterDataModel.getTableData(table);
+    
+    // Khusus admin fleets, deteksi status real-time untuk hari ini
+    if (table === 'fleets') {
+      const today = new Date().toISOString().split('T')[0];
+      const availableToday = await getAvailableFleets(null, today, today);
+      const availableIds = new Set(availableToday.map(f => f.id));
+      
+      records = records.map(fleet => {
+        if (fleet.status === 'active' && !availableIds.has(fleet.id)) {
+          return { ...fleet, status: 'Sedang Disewa / Beroperasi' };
+        }
+        return fleet;
+      });
+    }
+    
     return res.status(200).json({ status: 'success', message: `Berhasil mengambil data dari tabel ${table}`, data: records });
   } catch (error) {
     console.error(`Error getRecords ${table}:`, error);
@@ -47,9 +64,11 @@ const getRecords = (table) => async (req, res) => {
 
 const createRecord = (table) => async (req, res) => {
   try {
-    // Clone req.body agar tidak mutasi langsung (side-effect prevention)
     const data = { ...req.body };
     
+    if (data.is_active === 'true') data.is_active = true;
+    if (data.is_active === 'false') data.is_active = false;
+
     // Khusus tabel users, hash password
     if (table === 'users' && data.password) {
       const salt = await bcrypt.genSalt(10);
@@ -65,19 +84,27 @@ const createRecord = (table) => async (req, res) => {
       }
     }
 
+    // Singleton logic for Promotions
+    if (table === 'promotions' && (data.is_active === true || data.is_active === 'true')) {
+      const db = require('../config/db');
+      await db('promotions').update({ is_active: false });
+    }
+
     const newRecord = await MasterDataModel.createRecord(table, data);
     return res.status(201).json({ status: 'success', message: 'Data berhasil ditambahkan', data: newRecord });
   } catch (error) {
     console.error(`Error createRecord ${table}:`, error);
-    return res.status(500).json({ status: 'error', message: 'Gagal menambah data' });
+    return res.status(500).json({ status: 'error', message: `Gagal menambah data: ${error.message}` });
   }
 };
 
 const updateRecord = (table) => async (req, res) => {
   try {
     const { id } = req.params;
-    // Clone req.body agar tidak mutasi langsung (side-effect prevention)
     const data = { ...req.body };
+
+    if (data.is_active === 'true') data.is_active = true;
+    if (data.is_active === 'false') data.is_active = false;
 
     if (table === 'users' && data.password) {
       const salt = await bcrypt.genSalt(10);
@@ -98,6 +125,12 @@ const updateRecord = (table) => async (req, res) => {
           }
         }
       }
+    }
+
+    // Singleton logic for Promotions
+    if (table === 'promotions' && (data.is_active === true || data.is_active === 'true')) {
+      const db = require('../config/db');
+      await db('promotions').whereNot('id', id).update({ is_active: false });
     }
 
     const updated = await MasterDataModel.updateRecord(table, id, data);
@@ -183,11 +216,49 @@ const verifyTravelBooking = async (req, res) => {
 };
 
 const updateTravelBookingStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { booking_status, eta, price } = req.body;
+    try {
+      const { id } = req.params;
+      const { booking_status, eta, price } = req.body;
+      
+      const updatePayload = { booking_status, eta };
 
-    const updated = await MasterDataModel.updateTravelBookingStatus(id, { booking_status, eta, price });
+      if (price !== undefined) {
+        let finalPrice = parseFloat(price);
+        let originalPrice = finalPrice;
+        let appliedPromoId = null;
+        let appliedDiscountAmount = 0;
+        
+        try {
+          const db = require('../config/db');
+          const promo = await db('promotions').where('is_active', true).first();
+          
+          if (promo && (promo.target_service.includes('all') || promo.target_service.includes('travel'))) {
+            let discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
+            
+            if (promo.max_discount && parseFloat(promo.max_discount) > 0) {
+              const maxDiscount = parseFloat(promo.max_discount);
+              if (discount > maxDiscount) {
+                discount = maxDiscount;
+              }
+            }
+            
+            finalPrice = finalPrice - discount;
+            appliedPromoId = promo.id;
+            appliedDiscountAmount = discount;
+          }
+        } catch (err) {
+          console.error("Promo calculation error:", err);
+        }
+
+        updatePayload.price = finalPrice;
+        updatePayload.original_price = originalPrice;
+        if (appliedPromoId) {
+          updatePayload.promo_id = appliedPromoId;
+          updatePayload.discount_amount = appliedDiscountAmount;
+        }
+      }
+  
+      const updated = await MasterDataModel.updateTravelBookingStatus(id, updatePayload);
 
     if (!updated) {
       return res.status(404).json({
@@ -268,6 +339,51 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const departSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const schedule = await db('schedules').where({ id }).first();
+    if (!schedule) {
+      return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
+    }
+
+    if (schedule.status === 'departed' || schedule.status === 'completed') {
+      return res.status(400).json({ status: 'error', message: 'Jadwal sudah diberangkatkan atau selesai' });
+    }
+
+    await db.transaction(async (trx) => {
+      // 1. Update status jadwal menjadi departed
+      await trx('schedules')
+        .where({ id })
+        .update({ status: 'departed' });
+
+      // 2. Update status penumpang (travel_bookings) yang lunas menjadi on_transit
+      await trx('travel_bookings')
+        .where('schedule_id', id)
+        .where('booking_status', 'selesai')
+        .update({ booking_status: 'on_transit' });
+
+      // 3. Update status paket yang menumpang armada ini
+      if (schedule.fleet_id && schedule.departure_time) {
+        const depDateStr = new Date(schedule.departure_time).toISOString().split('T')[0];
+        
+        await trx('package_shipments')
+          .where('fleet_id', schedule.fleet_id)
+          .whereRaw('DATE(departure_date) = ?', [depDateStr])
+          .whereIn('transaction_status', ['selesai'])
+          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
+          .update({ status: 'on_transit' });
+      }
+    });
+
+    return res.status(200).json({ status: 'success', message: 'Berhasil mengkonfirmasi keberangkatan massal' });
+  } catch (error) {
+    console.error('Error departSchedule:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengkonfirmasi keberangkatan massal' });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -279,5 +395,6 @@ module.exports = {
   updateTravelBookingStatus,
   getPackageShipments,
   updateUser,
-  deleteUser
+  deleteUser,
+  departSchedule
 };

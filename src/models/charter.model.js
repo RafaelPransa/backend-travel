@@ -1,6 +1,12 @@
 const db = require('../config/db');
 
 const createRequest = async (data) => {
+  // Auto-alokasi unit
+  if (!data.fleet_id) {
+    const availableFleet = await db('fleets').where({ status: 'available' }).first();
+    data.fleet_id = availableFleet ? availableFleet.id : null;
+  }
+  
   const [booking] = await db('charter_bookings').insert(data).returning('*');
   return booking;
 };
@@ -49,6 +55,7 @@ const uploadPaymentProof = async (charter_id, user_id, file_url) => {
     .whereIn('status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
     .update({
       payment_proof_url: file_url,
+      payment_method: 'cashless',
       status: 'menunggu_konfirmasi' // Kembali ke konfirmasi admin setelah bukti diunggah
     })
     .returning('*');
@@ -56,10 +63,69 @@ const uploadPaymentProof = async (charter_id, user_id, file_url) => {
   return updated;
 };
 
+const updatePaymentMethod = async (charter_id, user_id, payment_method) => {
+    const updateData = { payment_method };
+    if (payment_method === 'cash') {
+      updateData.status = 'menunggu_konfirmasi';
+    }
+
+  const [updated] = await db('charter_bookings')
+    .where({ id: charter_id, user_id })
+    .whereIn('status', ['menunggu_pembayaran'])
+    .update(updateData)
+    .returning('*');
+  
+  return updated;
+};
+
+const cancelBooking = async (booking_id, user_id) => {
+  const booking = await db('charter_bookings')
+    .where({ id: booking_id, user_id })
+    .first();
+
+  if (!booking) return null;
+
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi'].includes(booking.status)) {
+    return null; 
+  }
+
+  if (['selesai', 'COMPLETED', 'APPROVED'].includes(booking.status)) {
+    const departureTime = new Date(booking.date_start);
+    const deadline = new Date(departureTime);
+    deadline.setHours(12, 0, 0, 0); 
+    
+    const now = new Date();
+    if (now > deadline) {
+      const error = new Error('Pembatalan pesanan charter hanya dapat dilakukan sebelum pukul 12 Siang pada tanggal keberangkatan');
+      error.code = 'CANCELLATION_TIMEOUT';
+      throw error;
+    }
+  }
+
+  const [deleted] = await db('charter_bookings')
+    .where({ id: booking_id, user_id })
+    .del()
+    .returning('*');
+    
+  return deleted;
+};
+
+const deleteBooking = async (booking_id, user_id) => {
+  const deletedRows = await db('charter_bookings')
+    .where({ id: booking_id, user_id })
+    .whereIn('status', ['selesai_final', 'dibatalkan', 'ditolak'])
+    .del();
+    
+  return deletedRows > 0;
+};
+
 module.exports = {
   createRequest,
   getHistory,
   updateStatus,
   getById,
-  uploadPaymentProof
+  uploadPaymentProof,
+  updatePaymentMethod,
+  cancelBooking,
+  deleteBooking
 };

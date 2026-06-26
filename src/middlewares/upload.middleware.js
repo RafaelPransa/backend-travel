@@ -7,9 +7,10 @@ const paymentsDir = path.join(__dirname, '../../public/uploads/payments');
 const expensesDir = path.join(__dirname, '../../public/uploads/expenses');
 const maintenanceDir = path.join(__dirname, '../../public/uploads/maintenance');
 const packagesDir = path.join(__dirname, '../../public/uploads/packages');
+const cmsDir = path.join(__dirname, '../../public/uploads/cms');
 
 // Buat direktori otomatis jika belum ada
-[paymentsDir, expensesDir, maintenanceDir, packagesDir].forEach(dir => {
+[paymentsDir, expensesDir, maintenanceDir, packagesDir, cmsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -68,9 +69,16 @@ const uploadPackage = multer({
   limits
 });
 
+const uploadCms = multer({
+  storage: createStorage(cmsDir, 'cms'),
+  fileFilter,
+  limits
+});
+
 module.exports = {
   uploadPayment,
   uploadExpense,
   uploadMaintenance,
-  uploadPackage
+  uploadPackage,
+  uploadCms
 };

@@ -57,7 +57,24 @@ const getActiveDuties = async (req, res) => {
   }
 };
 
+const getRecentBookings = async (req, res) => {
+  try {
+    const data = await DashboardModel.getRecentBookings();
+    return res.status(200).json({
+      status: 'success',
+      data
+    });
+  } catch (error) {
+    console.error('Error getRecentBookings:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil pesanan terbaru'
+    });
+  }
+};
+
 module.exports = {
   getDashboardMetrics,
-  getActiveDuties
+  getActiveDuties,
+  getRecentBookings
 };

@@ -221,14 +221,49 @@ const getDashboardData = async () => {
 
   return {
     today_revenue,
-    registered_users,
-    active_drivers,
-    orders_today,
+    total_users: registered_users,
+    total_drivers: active_drivers,
+    total_bookings_today: orders_today,
     orders_this_month
+  };
+};
+
+const getRecentBookings = async () => {
+  const travelBooking = await db('travel_bookings')
+    .leftJoin('users', 'travel_bookings.user_id', 'users.id')
+    .leftJoin('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+    .leftJoin('routes', 'schedules.route_id', 'routes.id')
+    .select(
+      'travel_bookings.id',
+      'users.name as customer_name',
+      'travel_bookings.seat_number',
+      'travel_bookings.price',
+      'routes.origin as route_origin',
+      'routes.destination as route_destination'
+    )
+    .orderBy('travel_bookings.created_at', 'desc')
+    .first();
+
+  const charterBooking = await db('charter_bookings')
+    .leftJoin('users', 'charter_bookings.user_id', 'users.id')
+    .select(
+      'charter_bookings.id',
+      'users.name as customer_name',
+      'charter_bookings.car_type',
+      db.raw('COALESCE(charter_bookings.offered_price, charter_bookings.original_price, 0) as total_price'),
+      'charter_bookings.destination'
+    )
+    .orderBy('charter_bookings.created_at', 'desc')
+    .first();
+
+  return {
+    travel: travelBooking || null,
+    charter: charterBooking || null
   };
 };
 
 module.exports = {
   getActiveDutiesList,
-  getDashboardData
+  getDashboardData,
+  getRecentBookings
 };

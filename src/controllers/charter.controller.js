@@ -15,6 +15,34 @@ const calculateDays = (start, end) => {
   return Math.max(daysDiff + 1, 1);
 };
 
+const { getAvailableFleets } = require('../helpers/fleetAvailability');
+
+const checkAvailability = async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    if (!start_date || !end_date) {
+      return res.status(400).json({ status: 'error', message: 'Parameter start_date dan end_date wajib diisi' });
+    }
+
+    // Ambil semua armada yang tersedia (null carType untuk ambil semua)
+    const availableFleets = await getAvailableFleets(null, start_date, end_date);
+    
+    // Group by car_type
+    const availabilityByCarType = {};
+    availableFleets.forEach(f => {
+      availabilityByCarType[f.car_type] = true;
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      data: availabilityByCarType
+    });
+  } catch (error) {
+    console.error('Error checkAvailability:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengecek ketersediaan' });
+  }
+};
+
 const requestCharter = async (req, res) => {
   try {
     const { 
@@ -30,10 +58,32 @@ const requestCharter = async (req, res) => {
     } = req.body;
     const user_id = req.user.id;
 
-    // Simpan ke database tanpa offered_price. Trigger calculate_charter_price akan mengisi otomatis.
+    // 1. Cari armada kosong
+    const availableFleets = await getAvailableFleets(car_type, departure_date, return_date);
+    if (availableFleets.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Maaf, seluruh armada tipe ini sudah penuh dipesan pada tanggal tersebut.'
+      });
+    }
+    
+    // Pilih armada pertama yang kosong
+    const selectedFleet = availableFleets[0];
+    
+    // Hitung total hari
+    const days = calculateDays(departure_date, return_date);
+    
+    // Hitung harga dasar
+    const basePricePerDay = selectedFleet.price && parseFloat(selectedFleet.price) > 0 
+      ? parseFloat(selectedFleet.price) 
+      : (selectedFleet.car_type.toLowerCase() === 'elf' ? 1200000 : 800000);
+    const offered_price = basePricePerDay * days;
+
+    // Simpan ke database dengan fleet_id dan harga dasar, status menunggu_pembayaran (kunci 10 menit)
     const newRequest = await CharterModel.createRequest({
       user_id,
       car_type,
+      fleet_id: selectedFleet.id,
       destination,
       departure_date,
       return_date,
@@ -42,10 +92,9 @@ const requestCharter = async (req, res) => {
       with_driver: with_driver || false,
       notes,
       payment_method,
-      status: 'menunggu_konfirmasi' // Menunggu admin melakukan review/konfirmasi harga
+      offered_price,
+      status: 'menunggu_pembayaran' 
     });
-
-    const days = calculateDays(departure_date, return_date);
 
     return res.status(201).json({
       status: 'success',
@@ -114,7 +163,43 @@ const verifyCharterPayment = async (req, res) => {
     if (driver_id !== undefined) extraFields.driver_id = driver_id;
     if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;
     if (driver_2_id !== undefined) extraFields.driver_2_id = driver_2_id;
-    if (offered_price !== undefined) extraFields.offered_price = offered_price;
+    
+    // Promo Logic untuk Charter
+    if (offered_price !== undefined) {
+      let finalPrice = parseFloat(offered_price);
+      let originalPrice = finalPrice;
+      let appliedPromoId = null;
+      let appliedDiscountAmount = 0;
+      
+      try {
+        const db = require('../config/db');
+        const promo = await db('promotions').where('is_active', true).first();
+        
+        if (promo && (promo.target_service.includes('all') || promo.target_service.includes('charter'))) {
+          let discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
+          
+          if (promo.max_discount && parseFloat(promo.max_discount) > 0) {
+            const maxDiscount = parseFloat(promo.max_discount);
+            if (discount > maxDiscount) {
+              discount = maxDiscount;
+            }
+          }
+          
+          finalPrice = finalPrice - discount;
+          appliedPromoId = promo.id;
+          appliedDiscountAmount = discount;
+        }
+      } catch (err) {
+        console.error("Promo calculation error:", err);
+      }
+
+      extraFields.offered_price = finalPrice;
+      extraFields.original_price = originalPrice;
+      if (appliedPromoId) {
+        extraFields.promo_id = appliedPromoId;
+        extraFields.discount_amount = appliedDiscountAmount;
+      }
+    }
 
     const updatedBooking = await CharterModel.updateStatus(id, nextStatus, extraFields);
 
@@ -167,9 +252,98 @@ const uploadPaymentProof = async (req, res) => {
   }
 };
 
+const updatePaymentMethod = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const booking_id = req.params.id;
+    const { payment_method } = req.body;
+
+    if (!payment_method || !['cash', 'cashless'].includes(payment_method)) {
+      return res.status(400).json({ status: 'error', message: 'Metode pembayaran tidak valid' });
+    }
+
+    const updatedBooking = await CharterModel.updatePaymentMethod(booking_id, user_id, payment_method);
+
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat diubah'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Metode pembayaran berhasil diubah',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error updatePaymentMethod:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengubah metode pembayaran'
+    });
+  }
+};
+
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const updatedBooking = await CharterModel.cancelBooking(id, userId);
+    
+    if (!updatedBooking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dibatalkan'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Pesanan berhasil dibatalkan',
+      data: updatedBooking
+    });
+  } catch (error) {
+    if (error.code === 'CANCELLATION_TIMEOUT') {
+      return res.status(400).json({ status: 'error', message: error.message });
+    }
+    console.error('Error cancelBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal membatalkan pesanan charter' });
+  }
+};
+
+const deleteBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await CharterModel.deleteBooking(id, userId);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Pesanan tidak ditemukan atau tidak dapat dihapus'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Riwayat pesanan berhasil dihapus'
+    });
+  } catch (error) {
+    console.error('Error deleteBooking:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal menghapus pesanan charter' });
+  }
+};
+
 module.exports = {
+  checkAvailability,
   requestCharter,
   getCharterHistory,
   verifyCharterPayment,
-  uploadPaymentProof
+  uploadPaymentProof,
+  updatePaymentMethod,
+  cancelBooking,
+  deleteBooking
 };

@@ -16,11 +16,13 @@ const loginSchema = z.object({
 
 // Schema untuk Booking Travel Regular
 const travelBookingSchema = z.object({
-  schedule_id: z.string().uuid('Format schedule_id tidak valid'),
+  schedule_id: z.string().uuid('Format schedule_id tidak valid').optional(),
+  route_id: z.string().uuid('Format route_id tidak valid').optional(),
+  departure_date: z.string().optional(),
   seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional(),
   baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional(),
   baggage_weight: z.coerce.number().positive('Berat bagasi harus bernilai positif').optional(),
   baggage_dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi bagasi tidak valid (kecil, sedang, besar, super_besar)" }) }).optional(),
@@ -29,7 +31,7 @@ const travelBookingSchema = z.object({
 
 // Schema untuk Request Charter Pariwisata
 const charterRequestSchema = z.object({
-  car_type: z.enum(['Luxio', 'Elf'], { errorMap: () => ({ message: "Pilihan armada hanya 'Luxio' atau 'Elf'" }) }),
+  car_type: z.string().min(1, "Armada wajib dipilih"),
   destination: z.string().min(3, 'Destinasi wajib diisi'),
   departure_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format departure_date harus YYYY-MM-DD'),
   return_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format return_date harus YYYY-MM-DD'),
@@ -37,7 +39,7 @@ const charterRequestSchema = z.object({
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
   with_driver: z.boolean().default(false),
   notes: z.string().optional(),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) })
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional()
 }).refine((data) => {
   return new Date(data.return_date) >= new Date(data.departure_date);
 }, {
@@ -57,8 +59,9 @@ const packageShipmentSchema = z.object({
   weight: z.coerce.number().positive('Berat paket harus bernilai positif'),
   dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi tidak valid (kecil, sedang, besar, super_besar)" }) }),
   seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').default(1),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional(),
   route_id: z.string().uuid('Format route_id tidak valid').optional(),
+  departure_date: z.string().optional(),
   total_price: z.coerce.number().nonnegative('Harga total tidak boleh negatif').optional()
 });
 
@@ -71,13 +74,16 @@ const adminValidationSchemas = {
   fleet: z.object({
     plate_number: z.string().min(1),
     car_type: z.string().min(1),
-    seat_capacity: z.number().int().positive(),
-    status: z.enum(['active', 'maintenance']).optional()
+    seat_capacity: z.coerce.number().int().positive(),
+    status: z.enum(['active', 'maintenance']).optional(),
+    price: z.coerce.number().nonnegative().optional(),
+    description: z.string().optional(),
+    image_url: z.string().optional()
   }),
   route: z.object({
     origin: z.string().min(1),
     destination: z.string().min(1),
-    base_price: z.number().positive()
+    base_price: z.coerce.number().positive()
   }),
   schedule: z.object({
     route_id: z.string().uuid(),
@@ -93,13 +99,13 @@ const adminValidationSchemas = {
   }),
   banner: z.object({
     title: z.string().min(1),
-    image_url: z.string().url(),
-    is_active: z.boolean().optional()
+    image_url: z.string().optional().or(z.literal('')),
+    is_active: z.boolean().or(z.enum(['true', 'false'])).optional()
   }),
   destination: z.object({
     name: z.string().min(1),
     description: z.string().min(1),
-    image_url: z.string().url()
+    image_url: z.string().optional().or(z.literal(''))
   }),
   expense: z.object({
     amount: z.number().positive(),
@@ -112,11 +118,13 @@ const adminValidationSchemas = {
   promotion: z.object({
     tagline: z.string().min(1),
     description: z.string().optional(),
-    image_url: z.string().url().optional().or(z.literal('')),
-    discount_percentage: z.number().min(0).max(100),
-    badge_label: z.string().min(1),
-    is_active: z.boolean().optional(),
-    promo_type: z.enum(['home', 'service', 'all']).optional()
+    image_url: z.string().optional().or(z.literal('')),
+    discount_percentage: z.coerce.number().min(0).max(100),
+    badge_label: z.string().min(1).optional().default('Promo'),
+    is_active: z.boolean().or(z.enum(['true', 'false'])).optional(),
+    promo_type: z.enum(['home', 'service', 'all']).optional(),
+    max_discount: z.coerce.number().min(0).optional().default(0),
+    target_service: z.string().optional().default('all')
   }),
   packageShipment: z.object({
     sender_name: z.string().min(3, 'Nama pengirim minimal 3 karakter').optional(),

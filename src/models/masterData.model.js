@@ -52,8 +52,13 @@ const getById = async (table, id) => {
 
 const createRecord = async (table, data) => {
   validateTable(table);
-  const [record] = await db(table).insert(data).returning('*');
-  return sanitizeOutput(record);
+  try {
+    const [record] = await db(table).insert(data).returning('*');
+    return sanitizeOutput(record);
+  } catch (e) {
+    require('fs').appendFileSync('db_error.log', e.message + '\n');
+    throw e;
+  }
 };
 
 const updateRecord = async (table, id, data) => {
@@ -72,13 +77,14 @@ const getTravelBookings = async () => {
     .join('users', 'travel_bookings.user_id', 'users.id')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
     .join('routes', 'schedules.route_id', 'routes.id')
+    .leftJoin('fleets', 'schedules.fleet_id', 'fleets.id')
     .select(
       'travel_bookings.id',
       'travel_bookings.seat_number',
       'travel_bookings.booking_status',
       'travel_bookings.payment_proof_url',
-      'travel_bookings.pickup_address',
-      'travel_bookings.dropoff_address',
+      'travel_bookings.pickup_address as address_detail',
+      'travel_bookings.dropoff_address as destination_detail',
       'travel_bookings.baggage_description',
       'travel_bookings.baggage_weight',
       'travel_bookings.baggage_dimension',
@@ -94,7 +100,9 @@ const getTravelBookings = async () => {
       'schedules.departure_time',
       'schedules.fleet_id',
       'schedules.driver_id',
-      'schedules.driver_2_id'
+      'schedules.driver_2_id',
+      'fleets.plate_number as fleet_plate_number',
+      'fleets.car_type as fleet_car_type'
     )
     .orderBy('travel_bookings.created_at', 'desc');
 };
@@ -132,29 +140,19 @@ const verifyTravelBooking = async (booking_id) => {
   return updated;
 };
 
-const updateTravelBookingStatus = async (booking_id, { booking_status, eta, price }) => {
+const updateTravelBookingStatus = async (booking_id, payload) => {
   const booking = await db('travel_bookings').where('id', booking_id).first();
   if (!booking) return null;
 
-  const updatePayload = {};
+  const updatePayload = { ...payload };
   
-  if (booking_status) {
-    updatePayload.booking_status = booking_status;
-    
+  if (updatePayload.booking_status) {
     // Kelola seat locking duration
-    if (booking_status === 'menunggu_pembayaran') {
+    if (updatePayload.booking_status === 'menunggu_pembayaran') {
       updatePayload.locked_until = new Date(Date.now() + 10 * 60000);
-    } else if (booking_status === 'selesai' || booking_status === 'ditolak' || booking_status === 'dibatalkan') {
+    } else if (updatePayload.booking_status === 'selesai' || updatePayload.booking_status === 'ditolak' || updatePayload.booking_status === 'dibatalkan') {
       updatePayload.locked_until = null;
     }
-  }
-
-  if (eta !== undefined) {
-    updatePayload.eta = eta;
-  }
-
-  if (price !== undefined) {
-    updatePayload.price = price;
   }
 
   const [updated] = await db('travel_bookings')
@@ -170,7 +168,22 @@ const getPackageShipments = async () => {
     .leftJoin('routes', 'package_shipments.route_id', 'routes.id')
     .leftJoin('fleets', 'package_shipments.fleet_id', 'fleets.id')
     .select(
-      'package_shipments.*',
+      'package_shipments.id',
+      'package_shipments.waybill_number',
+      'package_shipments.sender_name',
+      'package_shipments.sender_phone',
+      'package_shipments.receiver_name',
+      'package_shipments.receiver_phone',
+      'package_shipments.pickup_address as sender_address_detail',
+      'package_shipments.receiver_address as receiver_address_detail',
+      'package_shipments.weight',
+      'package_shipments.dimension',
+      'package_shipments.status',
+      'package_shipments.transaction_status',
+      'package_shipments.total_price as price',
+      'package_shipments.payment_method',
+      'package_shipments.payment_proof_url',
+      'package_shipments.created_at',
       'routes.origin',
       'routes.destination',
       'fleets.plate_number as fleet_plate_number',
@@ -190,3 +203,5 @@ module.exports = {
   updateTravelBookingStatus,
   getPackageShipments
 };
+
+// force nodemon reload
