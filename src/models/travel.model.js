@@ -13,6 +13,20 @@ const calculateLoad = async (route_id, dateString) => {
   let used_seats = 0;
   let occupied_seats_list = [];
 
+  // PENTING: Dapatkan availableFleets DAHULU sebelum evaluasi paket
+  let availableFleets = [];
+  try {
+    availableFleets = await getAvailableFleets(
+      null, 
+      dateString, 
+      dateString, 
+      null, 
+      schedule ? schedule.id : null
+    );
+  } catch (err) {
+    console.error("Error fetching available fleets in calculateLoad:", err);
+  }
+
   if (schedule) {
     // 1. Hitung beban dari Travel Reguler
     const travelBookings = await db('travel_bookings')
@@ -29,67 +43,70 @@ const calculateLoad = async (route_id, dateString) => {
       used_seats += 1;
       occupied_seats_list.push(b.seat_number);
       if (b.baggage_weight >= 60 || b.baggage_dimension === 'super_besar') {
-        used_seats += 1; // Memakan 2 kursi
-        // Kita anggap kursi ekstra ini memakan kapasitas logic, tidak usah ditaruh di list seat_number visual dulu
+        used_seats += 1; 
       }
     });
   }
 
   // 2. Hitung beban dari Paket (Package Shipments)
-  const packages = await db('package_shipments')
-    .where('route_id', route_id)
-    .whereRaw('DATE(created_at) = ?', [dateString])
+  let packagesQuery = db('package_shipments')
+    .where('departure_date', dateString)
     .whereNotIn('status', ['delivered', 'dibatalkan', 'ditolak']);
+
+  if (schedule && schedule.fleet_id) {
+    packagesQuery = packagesQuery.where('fleet_id', schedule.fleet_id);
+  } else if (availableFleets.length > 0) {
+    // Jika belum ada jadwal (mock load), cek paket pada armada mock yang akan terpilih
+    packagesQuery = packagesQuery.where('fleet_id', availableFleets[0].id);
+  } else {
+    packagesQuery = packagesQuery.where('route_id', route_id);
+  }
+  
+  const packages = await packagesQuery;
     
   packages.forEach(p => {
-    used_seats += (p.seat_qty || 1);
-    if (p.weight >= 60 || p.dimension === 'super_besar') {
-      used_seats += 1;
+    let seats = [];
+    try {
+      seats = typeof p.seat_numbers === 'string' ? JSON.parse(p.seat_numbers) : (p.seat_numbers || []);
+    } catch (e) {
+      seats = [];
+    }
+    
+    if (seats.length > 0) {
+      seats.forEach(seat => {
+        occupied_seats_list.push(seat);
+        used_seats += 1;
+      });
+    } else {
+      used_seats += (p.seat_qty || 1);
+      if (p.weight >= 60 || p.dimension === 'super_besar') {
+        used_seats += 1;
+      }
     }
   });
 
-  // 3. Evaluasi Unit secara dinamis dari armada yang TERSEDIA hari itu
+  // 3. Evaluasi Unit secara dinamis
   let unit = 'Tidak ada armada tersedia';
   let max_capacity = 0;
 
-  try {
-    // PENTING: kecualikan schedule.id ini dari daftar penguncian armada, 
-    // karena armada ini justru sedang kita hitung kapasitasnya untuk jadwal ini!
-    const availableFleets = await getAvailableFleets(
-      null, 
-      dateString, 
-      dateString, 
-      null, 
-      schedule ? schedule.id : null
-    );
+  if (availableFleets.length > 0) {
+    // Cari armada terkecil yang bisa memuat used_seats
+    const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
     
-    if (availableFleets.length > 0) {
-      // Sort berdasarkan kapasitas terkecil ke terbesar
-      availableFleets.sort((a, b) => a.seat_capacity - b.seat_capacity);
-      
-      // Cari armada terkecil yang bisa memuat used_seats
-      const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
-      
-      if (singleFleet) {
-        unit = singleFleet.car_type;
-        max_capacity = singleFleet.seat_capacity;
-      } else {
-        // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
-        const largestFleet = availableFleets[availableFleets.length - 1];
-        const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
-        unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
-        max_capacity = largestFleet.seat_capacity * neededUnits;
-      }
+    if (singleFleet) {
+      unit = singleFleet.car_type;
+      max_capacity = singleFleet.seat_capacity;
     } else {
-      // Fallback jika semua armada disewa/dipakai layanan lain
-      unit = 'Armada Penuh/Disewa';
-      max_capacity = 0;
+      // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
+      const largestFleet = availableFleets[availableFleets.length - 1];
+      const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
+      unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
+      max_capacity = largestFleet.seat_capacity * neededUnits;
     }
-  } catch (err) {
-    console.error("Error fetching fleets for unit evaluation:", err);
-    // Fallback darurat jika query gagal
-    unit = used_seats <= 14 ? 'Elf' : 'Elf (2 Unit)';
-    max_capacity = used_seats <= 14 ? 14 : 28;
+  } else {
+    // Fallback jika semua armada disewa/dipakai layanan lain
+    unit = 'Armada Penuh/Disewa';
+    max_capacity = 0;
   }
 
   let status = used_seats >= max_capacity ? 'full' : 'available';
@@ -238,13 +255,28 @@ const createBooking = async (data) => {
 
         const selectedFleet = availableFleets[0]; // Ambil armada pertama yang tersedia
         
-        const [newSchedule] = await db('schedules').insert({
-          route_id: data.route_id,
-          fleet_id: selectedFleet.id,
-          departure_time: departureTime,
-          status: 'scheduled'
-        }).returning('*');
-        schedule_id = newSchedule.id;
+        // Cek apakah armada ini sudah memiliki jadwal khusus paket (route_id null) hari ini
+        const packageOnlySchedule = await db('schedules')
+          .where('fleet_id', selectedFleet.id)
+          .whereNull('route_id')
+          .whereRaw('DATE(departure_time) = ?', [data.departure_date])
+          .first();
+
+        if (packageOnlySchedule) {
+          const [updatedSchedule] = await db('schedules')
+            .where('id', packageOnlySchedule.id)
+            .update({ route_id: data.route_id })
+            .returning('*');
+          schedule_id = updatedSchedule.id;
+        } else {
+          const [newSchedule] = await db('schedules').insert({
+            route_id: data.route_id,
+            fleet_id: selectedFleet.id,
+            departure_time: departureTime,
+            status: 'scheduled'
+          }).returning('*');
+          schedule_id = newSchedule.id;
+        }
       }
   }
 
@@ -493,7 +525,7 @@ const deleteBooking = async (booking_id, user_id) => {
       if (activeBookings.length === 0) {
         const activePackages = await db('package_shipments')
           .where('fleet_id', booking.fleet_id || null)
-          .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
+          .where('departure_date', new Date(booking.departure_time).toISOString().split('T')[0])
           .whereNotIn('status', ['delivered', 'cancelled']);
           
         if (activePackages.length === 0) {

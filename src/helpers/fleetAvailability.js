@@ -59,6 +59,7 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   // 3. Ambil armada yang sedang digunakan oleh Rute (Schedule) pada rentang tanggal tersebut
   let scheduleQuery = db('schedules')
     .whereIn('fleet_id', fleetIds)
+    .whereNotNull('route_id') // HANYA jadwal travel reguler yang mengunci armada
     .whereRaw('DATE(departure_time) >= ? AND DATE(departure_time) <= ?', [departureDate, returnDate]);
     
   if (excludeScheduleId) {
@@ -72,13 +73,20 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   let packageQuery = db('package_shipments')
     .whereIn('fleet_id', fleetIds)
     .whereIn('status', ['received', 'in_transit', 'menunggu_penjemputan', 'dalam_penjemputan'])
-    .whereRaw('DATE(created_at) >= ? AND DATE(created_at) <= ?', [departureDate, returnDate]);
+    .whereRaw('departure_date >= ? AND departure_date <= ?', [departureDate, returnDate]);
     
   const activePackages = await packageQuery;
   const packageFleetIds = activePackages.map(p => p.fleet_id);
 
   // 5. Gabungkan fleet_id yang sedang sibuk
-  const busyFleetIds = [...new Set([...lockedFleetIds, ...scheduleFleetIds, ...packageFleetIds])];
+  let busyFleetIds = [...new Set([...lockedFleetIds, ...scheduleFleetIds, ...packageFleetIds])];
+
+  if (excludeScheduleId) {
+    const excSched = await db('schedules').where('id', excludeScheduleId).first();
+    if (excSched && excSched.fleet_id) {
+       busyFleetIds = busyFleetIds.filter(id => id !== excSched.fleet_id);
+    }
+  }
 
   // 6. Filter armada yang benar-benar kosong
   const availableFleets = activeFleets.filter(fleet => !busyFleetIds.includes(fleet.id));

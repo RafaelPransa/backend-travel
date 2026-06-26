@@ -137,6 +137,28 @@ const updateRecord = (table) => async (req, res) => {
     if (!updated) {
       return res.status(404).json({ status: 'error', message: 'Data tidak ditemukan' });
     }
+
+    // CREATE SCHEDULE JIKA PAKET DIVALIDASI (Agar muncul di Penugasan Armada)
+    if (table === 'package_shipments' && updated.transaction_status === 'selesai' && updated.fleet_id && updated.departure_date) {
+      const db = require('../config/db');
+      const existingSchedule = await db('schedules')
+        .where('fleet_id', updated.fleet_id)
+        .whereRaw('DATE(departure_time) = ?', [updated.departure_date])
+        .first();
+
+      if (!existingSchedule) {
+        // Jika belum ada jadwal, buat jadwal baru on-the-fly untuk fleet ini agar butuh penugasan
+        const departureTime = new Date(updated.departure_date);
+        departureTime.setHours(8, 0, 0, 0); // Default ke jam 8 pagi
+        await db('schedules').insert({
+          route_id: updated.route_id || null,
+          fleet_id: updated.fleet_id,
+          departure_time: departureTime,
+          status: 'scheduled'
+        });
+      }
+    }
+
     return res.status(200).json({ status: 'success', message: 'Data berhasil diubah', data: updated });
   } catch (error) {
     console.error(`Error updateRecord ${table}:`, error);

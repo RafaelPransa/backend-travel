@@ -6,12 +6,13 @@ const getAssignments = async (req, res) => {
 
   try {
     const routeSchedulesQuery = db("schedules")
-      .join("routes", "schedules.route_id", "routes.id")
+      .leftJoin("routes", "schedules.route_id", "routes.id")
       .leftJoin("fleets", "schedules.fleet_id", "fleets.id")
       .select(
         "schedules.id",
         "schedules.departure_time as departure_date",
         "schedules.fleet_id",
+        "schedules.route_id",
         "fleets.car_type as fleet_car_type",
         "fleets.plate_number as fleet_plate_number",
         "fleets.seat_capacity as fleet_capacity",
@@ -88,7 +89,9 @@ const getAssignments = async (req, res) => {
       return {
         id: sched.id,
         type: "RUTE",
-        title: `Travel Reguler: ${sched.origin} ➔ ${sched.destination}`,
+        title: sched.origin && sched.destination 
+               ? `Travel Reguler: ${sched.origin} ➔ ${sched.destination}` 
+               : `Pengiriman Khusus Paket`,
         departure_date: sched.departure_date,
         fleet_id: sched.fleet_id,
         fleet_car_type: sched.fleet_car_type,
