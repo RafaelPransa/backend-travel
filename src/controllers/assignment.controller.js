@@ -31,7 +31,7 @@ const getAssignments = async (req, res) => {
 
     const routeSchedules = await routeSchedulesQuery;
 
-    const enrichedRoutes = await Promise.all(routeSchedules.map(async (sched) => {
+    const enrichedRoutes = (await Promise.all(routeSchedules.map(async (sched) => {
       // Get travel_bookings
       const travelBookings = await db('travel_bookings')
         .where('schedule_id', sched.id)
@@ -39,10 +39,19 @@ const getAssignments = async (req, res) => {
       
       const total_passengers = travelBookings.length;
       const passenger_revenue = travelBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+      
+      // Count validated passengers
+      const validTravelBookings = travelBookings.filter(b => 
+        ['dibayar', 'dalam_penjemputan', 'selesai', 'selesai_final'].includes(b.booking_status)
+      );
+      const valid_passengers = validTravelBookings.length;
+      const valid_passenger_revenue = validTravelBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
 
       // Get package_shipments
       let package_revenue = 0;
       let total_packages = 0;
+      let valid_packages = 0;
+      let valid_package_revenue = 0;
       if (sched.fleet_id) {
         const depDate = new Date(sched.departure_date).toISOString().split('T')[0];
         const packages = await db('package_shipments')
@@ -55,6 +64,18 @@ const getAssignments = async (req, res) => {
         
         total_packages = packages.length;
         package_revenue = packages.reduce((sum, p) => sum + (parseFloat(p.total_price) || 0), 0);
+        
+        // Count validated packages
+        const validPackages = packages.filter(p => 
+          !['menunggu_validasi', 'menunggu_pembayaran', 'menunggu_konfirmasi'].includes(p.status)
+        );
+        valid_packages = validPackages.length;
+        valid_package_revenue = validPackages.reduce((sum, p) => sum + (parseFloat(p.total_price) || 0), 0);
+      }
+
+      // Only show in 'pending' if at least one booking/package is validated
+      if (phase === 'pending' && valid_passengers === 0 && valid_packages === 0) {
+        return null;
       }
 
       return {
@@ -66,11 +87,11 @@ const getAssignments = async (req, res) => {
         fleet_car_type: sched.fleet_car_type,
         fleet_plate_number: sched.fleet_plate_number,
         fleet_capacity: sched.fleet_capacity,
-        total_passengers,
-        total_packages,
-        total_revenue: passenger_revenue + package_revenue
+        total_passengers: phase === 'pending' ? valid_passengers : total_passengers,
+        total_packages: phase === 'pending' ? valid_packages : total_packages,
+        total_revenue: phase === 'pending' ? (valid_passenger_revenue + valid_package_revenue) : (passenger_revenue + package_revenue)
       };
-    }));
+    }))).filter(Boolean);
 
     // CHARTER
     const charterQuery = db("charter_bookings")
