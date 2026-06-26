@@ -11,6 +11,7 @@ const getAssignedSchedules = async (driver_id) => {
     .leftJoin('fleets', 'schedules.fleet_id', 'fleets.id')
     .select(
       'schedules.id',
+      'schedules.fleet_id',
       'schedules.departure_time',
       'schedules.status',
       'routes.origin',
@@ -33,16 +34,19 @@ const getAssignedSchedules = async (driver_id) => {
   const allPassengers = await db('travel_bookings')
     .join('users', 'travel_bookings.user_id', 'users.id')
     .select(
+      'travel_bookings.id as booking_id',
       'travel_bookings.schedule_id',
       'travel_bookings.seat_number',
+      'travel_bookings.price',
       'users.name as passenger_name',
       'users.phone_number as passenger_phone',
       'travel_bookings.booking_status',
+      'travel_bookings.payment_method',
       'travel_bookings.pickup_address',
       'travel_bookings.dropoff_address'
     )
     .whereIn('travel_bookings.schedule_id', scheduleIds)
-    .whereIn('travel_bookings.booking_status', ['selesai'])
+    .whereNotIn('travel_bookings.booking_status', ['dibatalkan', 'ditolak'])
     .orderBy('travel_bookings.seat_number', 'asc');
 
   // 3. Kelompokkan penumpang ke jadwal masing-masing secara in-memory
@@ -52,18 +56,61 @@ const getAssignedSchedules = async (driver_id) => {
       passengerMap[passenger.schedule_id] = [];
     }
     passengerMap[passenger.schedule_id].push({
+      booking_id: passenger.booking_id,
       seat_number: passenger.seat_number,
       passenger_name: passenger.passenger_name,
       passenger_phone: passenger.passenger_phone,
       booking_status: passenger.booking_status,
+      payment_method: passenger.payment_method,
+      price: passenger.price,
       pickup_address: passenger.pickup_address,
       dropoff_address: passenger.dropoff_address
     });
   }
 
-  // 4. Gabungkan ke setiap jadwal
+  // 4. Ambil semua paket untuk armada-armada ini pada tanggal tersebut
+  // Kita ambil ID armada yang terhubung dengan jadwal
+  const validFleetIds = schedules.filter(s => s.fleet_id).map(s => s.fleet_id);
+  let allPackages = [];
+  
+  if (validFleetIds.length > 0) {
+    allPackages = await db('package_shipments')
+      .select(
+        'id as package_id',
+        'fleet_id',
+        'waybill_number',
+        'sender_name',
+        'sender_phone',
+        'receiver_name',
+        'receiver_phone',
+        'receiver_address',
+        'package_description',
+        'weight',
+        'dimension',
+        'original_price',
+        'payment_method',
+        'transaction_status',
+        'status',
+        'created_at'
+      )
+      .whereIn('fleet_id', validFleetIds)
+      .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
+  }
+
+  // 5. Gabungkan ke setiap jadwal
   for (const schedule of schedules) {
     schedule.passengers = passengerMap[schedule.id] || [];
+    
+    // Filter paket berdasarkan fleet_id dan tanggal yang sama
+    if (schedule.fleet_id && schedule.departure_time) {
+      const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+      schedule.packages = allPackages.filter(p => {
+        const pkgDate = new Date(p.created_at).toISOString().split('T')[0];
+        return p.fleet_id === schedule.fleet_id && pkgDate <= depDate && !['delivered'].includes(p.status);
+      });
+    } else {
+      schedule.packages = [];
+    }
   }
 
   return schedules;
