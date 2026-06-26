@@ -339,6 +339,51 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const departSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const schedule = await db('schedules').where({ id }).first();
+    if (!schedule) {
+      return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
+    }
+
+    if (schedule.status === 'departed' || schedule.status === 'completed') {
+      return res.status(400).json({ status: 'error', message: 'Jadwal sudah diberangkatkan atau selesai' });
+    }
+
+    await db.transaction(async (trx) => {
+      // 1. Update status jadwal menjadi departed
+      await trx('schedules')
+        .where({ id })
+        .update({ status: 'departed' });
+
+      // 2. Update status penumpang (travel_bookings) yang lunas menjadi on_transit
+      await trx('travel_bookings')
+        .where('schedule_id', id)
+        .where('booking_status', 'selesai')
+        .update({ booking_status: 'on_transit' });
+
+      // 3. Update status paket yang menumpang armada ini
+      if (schedule.fleet_id && schedule.departure_time) {
+        const depDateStr = new Date(schedule.departure_time).toISOString().split('T')[0];
+        
+        await trx('package_shipments')
+          .where('fleet_id', schedule.fleet_id)
+          .whereRaw('DATE(departure_date) = ?', [depDateStr])
+          .whereIn('transaction_status', ['selesai'])
+          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
+          .update({ status: 'on_transit' });
+      }
+    });
+
+    return res.status(200).json({ status: 'success', message: 'Berhasil mengkonfirmasi keberangkatan massal' });
+  } catch (error) {
+    console.error('Error departSchedule:', error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengkonfirmasi keberangkatan massal' });
+  }
+};
+
 module.exports = {
   getRecords,
   createRecord,
@@ -350,5 +395,6 @@ module.exports = {
   updateTravelBookingStatus,
   getPackageShipments,
   updateUser,
-  deleteUser
+  deleteUser,
+  departSchedule
 };

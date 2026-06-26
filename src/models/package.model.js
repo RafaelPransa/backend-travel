@@ -71,10 +71,10 @@ const deleteBooking = async (booking_id, user_id) => {
 };
 
 const updatePaymentMethod = async (shipment_id, user_id, payment_method) => {
-    const updateData = { payment_method };
-    if (payment_method === 'cash') {
-      updateData.transaction_status = 'selesai'; 
-    }
+      const updateData = { payment_method };
+      if (payment_method === 'cash') {
+        updateData.transaction_status = 'menunggu_konfirmasi'; 
+      }
   
     const [updated] = await db('package_shipments')
       .where({ id: shipment_id, user_id })

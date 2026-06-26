@@ -396,9 +396,9 @@ const uploadPaymentProof = async (booking_id, user_id, file_url) => {
 
 const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
   const updateData = { payment_method };
-  // Jika memilih cash, status langsung diset ke selesai (siap dijemput)
+  // Jika memilih cash, status diset ke menunggu_konfirmasi agar Admin memvalidasi
   if (payment_method === 'cash') {
-    updateData.booking_status = 'selesai';
+    updateData.booking_status = 'menunggu_konfirmasi';
   }
 
   const [updated] = await db('travel_bookings')
@@ -412,7 +412,7 @@ const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
 const cancelBooking = async (booking_id, user_id) => {
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .select('travel_bookings.booking_status', 'schedules.departure_time')
+    .select('travel_bookings.booking_status', 'schedules.departure_time', 'schedules.id as schedule_id', 'schedules.fleet_id')
     .where('travel_bookings.id', booking_id)
     .andWhere('travel_bookings.user_id', user_id)
     .first();

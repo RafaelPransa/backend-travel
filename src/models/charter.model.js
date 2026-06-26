@@ -64,10 +64,10 @@ const uploadPaymentProof = async (charter_id, user_id, file_url) => {
 };
 
 const updatePaymentMethod = async (charter_id, user_id, payment_method) => {
-  const updateData = { payment_method };
-  if (payment_method === 'cash') {
-    updateData.status = 'selesai';
-  }
+    const updateData = { payment_method };
+    if (payment_method === 'cash') {
+      updateData.status = 'menunggu_konfirmasi';
+    }
 
   const [updated] = await db('charter_bookings')
     .where({ id: charter_id, user_id })
