@@ -98,22 +98,28 @@ const calculateLoad = async (route_id, dateString) => {
   if (availableFleets.length > 0) {
     // Cari armada terkecil yang bisa memuat used_seats
     const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
-    
-    if (singleFleet) {
-      unit = singleFleet.car_type;
-      max_capacity = singleFleet.seat_capacity;
+        if (singleFleet) {
+        unit = singleFleet.car_type;
+        max_capacity = singleFleet.seat_capacity;
+      } else {
+        // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
+        const largestFleet = availableFleets[availableFleets.length - 1];
+        const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
+        
+        if (neededUnits > availableFleets.length) {
+          // Hanya gunakan unit yang benar-benar tersedia di database
+          unit = availableFleets.length === 1 ? availableFleets[0].car_type : `${availableFleets.length} Armada Gabungan`;
+          max_capacity = availableFleets.reduce((sum, f) => sum + f.seat_capacity, 0);
+        } else {
+          unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
+          max_capacity = largestFleet.seat_capacity * neededUnits;
+        }
+      }
     } else {
-      // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
-      const largestFleet = availableFleets[availableFleets.length - 1];
-      const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
-      unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
-      max_capacity = largestFleet.seat_capacity * neededUnits;
+      // Fallback jika semua armada disewa/dipakai layanan lain
+      unit = 'Armada Penuh/Disewa';
+      max_capacity = 0;
     }
-  } else {
-    // Fallback jika semua armada disewa/dipakai layanan lain
-    unit = 'Armada Penuh/Disewa';
-    max_capacity = 0;
-  }
 
   // Secara dinamis memblokir kursi untuk barang bawaan penumpang dari kursi paling belakang
   if (extraSeatsCount > 0 && max_capacity > 0) {
@@ -267,6 +273,64 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
 const createBooking = async (data) => {
   // Modifikasi agar mendukung alokasi dinamis (membuat schedule jika belum ada)
   let schedule_id = data.schedule_id;
+  let target_route_id = data.route_id;
+  
+  if (schedule_id && !target_route_id) {
+    const s = await db('schedules').where('id', schedule_id).first();
+    if (s) target_route_id = s.route_id;
+  }
+  
+  let extraSeatsCount = 0;
+  if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
+    extraSeatsCount = 2;
+  } else if (data.baggage_weight >= 30.00 || data.baggage_dimension === 'besar') {
+    extraSeatsCount = 1;
+  }
+
+  if (extraSeatsCount > 0) {
+    // Pastikan sisa kursi cukup untuk penumpang + barang bawaan (karena booking belum masuk DB)
+    const loadInfo = await calculateLoad(target_route_id, data.departure_date, schedule_id);
+    if (loadInfo.sisa_kursi < extraSeatsCount + 1) {
+      // Cari tanggal terdekat dalam 7 hari ke depan
+      let nextAvailableDate = null;
+      let nextScheduleId = null;
+      
+      for (let i = 1; i <= 7; i++) {
+        const nextDate = new Date(data.departure_date);
+        nextDate.setDate(nextDate.getDate() + i);
+        const yyyy = nextDate.getFullYear();
+        const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(nextDate.getDate()).padStart(2, '0');
+        const nextDateStr = `${yyyy}-${mm}-${dd}`;
+        
+        // Cari schedule existing untuk tanggal tersebut jika ada
+        const existingNext = await db('schedules')
+          .where('route_id', target_route_id)
+          .whereRaw('DATE(departure_time) = ?', [nextDateStr])
+          .first();
+          
+        const nextLoadInfo = await calculateLoad(target_route_id, nextDateStr, existingNext ? existingNext.id : null);
+        if (nextLoadInfo.sisa_kursi >= extraSeatsCount + 1) {
+          nextAvailableDate = nextDateStr;
+          nextScheduleId = existingNext ? existingNext.id : null;
+          break;
+        }
+      }
+      
+      const errorMsg = `Sisa kursi di armada (Sisa ${loadInfo.sisa_kursi}) tidak cukup untuk Anda dan barang bawaan Anda (Butuh ${extraSeatsCount + 1}).`;
+      if (nextAvailableDate) {
+        const error = new Error(errorMsg);
+        error.code = 'NEAREST_DATE_OFFER';
+        error.nearest_date = nextAvailableDate;
+        error.nearest_schedule_id = nextScheduleId;
+        throw error;
+      } else {
+        const error = new Error(errorMsg + " Tidak ada jadwal kosong dalam 7 hari ke depan.");
+        error.code = 'NOT_ENOUGH_SEATS_FOR_BAGGAGE';
+        throw error;
+      }
+    }
+  }
   
   if (!schedule_id && data.route_id && data.departure_date) {
     // Cek apakah schedule sudah ada di tanggal tersebut
