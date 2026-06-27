@@ -22,6 +22,7 @@ const getAssignedSchedules = async (driver_id) => {
       'fleets.seat_capacity'
     )
     .where('schedules.driver_id', driver_id)
+    .whereNot('schedules.status', 'completed')
     .orderBy('schedules.departure_time', 'asc');
 
   if (schedules.length === 0) {
@@ -145,6 +146,27 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) 
   return updated;
 };
 
+const updatePackageStatus = async (package_id, driver_id, status) => {
+  // Verifikasi package ini ditugaskan ke fleet yang dibawa driver ini pada jadwal aktif
+  const pkg = await db('package_shipments')
+    .join('schedules', 'package_shipments.fleet_id', 'schedules.fleet_id')
+    .where('package_shipments.id', package_id)
+    .where('schedules.driver_id', driver_id)
+    .select('package_shipments.id')
+    .first();
+
+  if (!pkg) {
+    return null;
+  }
+
+  const [updated] = await db('package_shipments')
+    .where({ id: package_id })
+    .update({ status })
+    .returning('*');
+    
+  return updated;
+};
+
 // ============================================================================
 // MIGRATED FLEET & MAINTENANCE METHODS (FROM MECHANIC)
 // ============================================================================
@@ -232,6 +254,7 @@ module.exports = {
   getAssignedSchedules,
   updateScheduleStatus,
   updateTravelBookingStatus,
+  updatePackageStatus,
   
   // Fleet & Maintenance
   getFleets,

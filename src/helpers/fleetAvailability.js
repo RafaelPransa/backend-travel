@@ -59,6 +59,7 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   // 3. Ambil armada yang sedang digunakan oleh Rute (Schedule) pada rentang tanggal tersebut
   let scheduleQuery = db('schedules')
     .whereIn('fleet_id', fleetIds)
+    .whereNotIn('status', ['completed', 'dibatalkan']) // HANYA jadwal aktif yang mengunci armada
     .whereNotNull('route_id') // HANYA jadwal travel reguler yang mengunci armada
     .whereRaw('DATE(departure_time) >= ? AND DATE(departure_time) <= ?', [departureDate, returnDate]);
     

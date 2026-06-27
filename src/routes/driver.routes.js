@@ -111,6 +111,41 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
  */
 router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), driverController.updateTravelBookingStatus);
 
+/**
+ * @openapi
+ * /api/driver/schedules/packages/{id}/status:
+ *   put:
+ *     summary: Memperbarui Status Paket (Driver Only)
+ *     description: Driver memperbarui status paket (menunggu_penjemputan, on_transit, delivered).
+ *     tags:
+ *       - Driver Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Package ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Status paket berhasil diperbarui
+ */
+router.put('/schedules/packages/:id/status', authenticate, authorize('driver'), driverController.updatePackageStatus);
+
 
 /**
  * @openapi

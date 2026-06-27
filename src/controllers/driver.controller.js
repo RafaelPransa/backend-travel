@@ -1,4 +1,32 @@
 const DriverModel = require('../models/driver.model');
+const db = require('../config/db');
+
+async function checkAndCompleteSchedule(schedule_id) {
+  try {
+    const schedule = await db('schedules').where({ id: schedule_id }).first();
+    if (!schedule) return;
+
+    // Cek penumpang yang belum selesai
+    const unfinishedTravels = await db('travel_bookings')
+      .where({ schedule_id })
+      .whereNotIn('booking_status', ['selesai', 'dibatalkan', 'ditolak']);
+
+    // Cek paket yang belum selesai untuk armada dan tanggal ini
+    const unfinishedPackages = await db('package_shipments')
+      .where({ fleet_id: schedule.fleet_id })
+      .whereRaw('DATE(departure_date) = DATE(?)', [schedule.departure_time])
+      .whereNotIn('status', ['delivered', 'dibatalkan', 'ditolak', 'REJECTED']);
+
+    if (unfinishedTravels.length === 0 && unfinishedPackages.length === 0) {
+      await db('schedules').where({ id: schedule_id }).update({ status: 'completed' });
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Error auto-completing schedule:', err);
+    return false;
+  }
+}
 
 const getMySchedules = async (req, res) => {
   try {
@@ -63,16 +91,67 @@ const updateTravelBookingStatus = async (req, res) => {
       });
     }
 
+    let is_schedule_completed = false;
+    if (['selesai', 'dibatalkan', 'ditolak'].includes(status)) {
+      if (updated.schedule_id) {
+        is_schedule_completed = await checkAndCompleteSchedule(updated.schedule_id);
+      }
+    }
+
     return res.status(200).json({
       status: 'success',
       message: `Status penumpang berhasil diperbarui menjadi '${status}'`,
-      data: updated
+      data: updated,
+      is_schedule_completed
     });
   } catch (error) {
     console.error('Error updateTravelBookingStatus:', error);
     return res.status(500).json({
       status: 'error',
       message: 'Gagal memperbarui status penumpang'
+    });
+  }
+};
+
+const updatePackageStatus = async (req, res) => {
+  try {
+    const driver_id = req.user.id;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const updated = await DriverModel.updatePackageStatus(id, driver_id, status);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Paket tidak ditemukan atau Anda tidak berwenang memperbarui status ini'
+      });
+    }
+
+    let is_schedule_completed = false;
+    if (['delivered', 'dibatalkan', 'ditolak', 'REJECTED'].includes(status)) {
+      if (updated.fleet_id && updated.departure_date) {
+        const schedule = await db('schedules')
+          .where({ fleet_id: updated.fleet_id })
+          .whereRaw('DATE(departure_time) = DATE(?)', [updated.departure_date])
+          .first();
+        if (schedule) {
+          is_schedule_completed = await checkAndCompleteSchedule(schedule.id);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Status paket berhasil diperbarui menjadi '${status}'`,
+      data: updated,
+      is_schedule_completed
+    });
+  } catch (error) {
+    console.error('Error updatePackageStatus:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status paket'
     });
   }
 };
@@ -270,6 +349,7 @@ module.exports = {
   getMySchedules,
   updateScheduleStatus,
   updateTravelBookingStatus,
+  updatePackageStatus,
   getFleets,
   updateFleetStatus,
   getMaintenanceLogs,
