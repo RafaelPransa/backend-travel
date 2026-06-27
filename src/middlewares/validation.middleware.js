@@ -97,6 +97,13 @@ const adminValidationSchemas = {
     phone_number: z.string().min(10),
     role: z.enum(['customer', 'driver'])
   }),
+  userUpdate: z.object({
+    name: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    password: z.string().min(6).optional(),
+    phone_number: z.string().min(10).optional(),
+    role: z.enum(['customer', 'driver']).optional()
+  }),
   banner: z.object({
     title: z.string().min(1),
     image_url: z.string().optional().or(z.literal('')),

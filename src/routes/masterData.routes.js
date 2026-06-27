@@ -695,7 +695,7 @@ const crudRoute = (path, table, schema) => crudRouteHelper(router, path, table, 
 crudRoute('/fleets', 'fleets', adminValidationSchemas.fleet);
 crudRoute('/routes', 'routes', adminValidationSchemas.route);
 crudRoute('/schedules', 'schedules', adminValidationSchemas.schedule);
-router.put('/users/:id', validate(adminValidationSchemas.user), masterController.updateUser);
+router.put('/users/:id', validate(adminValidationSchemas.userUpdate), masterController.updateUser);
 router.delete('/users/:id', masterController.deleteUser);
 crudRoute('/users', 'users', adminValidationSchemas.user);
 crudRoute('/banners', 'banners', adminValidationSchemas.banner);
