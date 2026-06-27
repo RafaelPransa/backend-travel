@@ -603,7 +603,7 @@ const cancelBooking = async (booking_id, user_id) => {
         .whereNotIn('status', ['delivered', 'cancelled']);
         
       if (activePackages.length === 0) {
-        await db('schedules').where('id', booking.schedule_id).del();
+        await db('schedules').where('id', booking.schedule_id).update({ status: 'dibatalkan' });
       }
     }
   }
