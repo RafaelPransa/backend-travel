@@ -22,10 +22,25 @@ const updateStatus = async (id, status, proof_of_delivery_url = null) => {
 };
 
 const getPackageHistory = async (user_id) => {
-  return db('package_shipments')
-    .select('*')
+  const packages = await db('package_shipments')
     .where('user_id', user_id)
+    .where('is_hidden', false)
     .orderBy('created_at', 'desc');
+
+  for (let pkg of packages) {
+    if (pkg.fleet_id) {
+      const schedule = await db('schedules')
+        .where('fleet_id', pkg.fleet_id)
+        .whereRaw('DATE(departure_time) >= DATE(?)', [pkg.created_at])
+        .orderBy('departure_time', 'asc')
+        .first();
+      pkg.schedule_status = schedule ? schedule.status : null;
+    } else {
+      pkg.schedule_status = null;
+    }
+  }
+
+  return packages;
 };
 
 const cancelBooking = async (booking_id, user_id) => {
@@ -37,11 +52,11 @@ const cancelBooking = async (booking_id, user_id) => {
 
   if (!shipment) return null;
 
-  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'pending', 'menunggu_konfirmasi', 'menunggu_harga'].includes(shipment.status)) {
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'pending', 'menunggu_konfirmasi', 'menunggu_harga', 'dibayar', 'received'].includes(shipment.status)) {
     return null;
   }
 
-  if (['selesai', 'COMPLETED', 'APPROVED'].includes(shipment.status)) {
+  if (['selesai', 'COMPLETED', 'APPROVED', 'dibayar', 'received'].includes(shipment.status)) {
     const creationDate = new Date(shipment.created_at);
     const deadline = new Date(creationDate);
     deadline.setHours(12, 0, 0, 0); 
@@ -56,18 +71,18 @@ const cancelBooking = async (booking_id, user_id) => {
 
   const [deleted] = await db('package_shipments')
     .where({ id: booking_id, user_id })
-    .del()
+    .update({ status: 'dibatalkan', fleet_id: null })
     .returning('*');
     
   return deleted;
 };
 
 const deleteBooking = async (booking_id, user_id) => {
-  const deletedRows = await db('package_shipments')
+  const updatedRows = await db('package_shipments')
     .where({ id: booking_id, user_id })
     .whereIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
-    .del();
-  return deletedRows > 0;
+    .update({ is_hidden: true });
+  return updatedRows > 0;
 };
 
 const updatePaymentMethod = async (shipment_id, user_id, payment_method) => {

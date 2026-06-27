@@ -28,10 +28,10 @@ const getHistory = async (user_id, role) => {
     )
     .orderBy('charter_bookings.created_at', 'desc');
 
-  // Jika customer, batasi data hanya milik sendiri
-  if (role === 'customer') {
-    query.where('charter_bookings.user_id', user_id);
-  }
+    // Jika customer, batasi data hanya milik sendiri dan jangan tampilkan yang disembunyikan
+    if (role === 'customer') {
+      query.where('charter_bookings.user_id', user_id).andWhere('charter_bookings.is_hidden', false);
+    }
 
   return query;
 };
@@ -85,11 +85,11 @@ const cancelBooking = async (booking_id, user_id) => {
 
   if (!booking) return null;
 
-  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi'].includes(booking.status)) {
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi', 'dibayar'].includes(booking.status)) {
     return null; 
   }
 
-  if (['selesai', 'COMPLETED', 'APPROVED'].includes(booking.status)) {
+  if (['selesai', 'COMPLETED', 'APPROVED', 'dibayar'].includes(booking.status)) {
     const departureTime = new Date(booking.date_start);
     const deadline = new Date(departureTime);
     deadline.setHours(12, 0, 0, 0); 
@@ -104,19 +104,19 @@ const cancelBooking = async (booking_id, user_id) => {
 
   const [deleted] = await db('charter_bookings')
     .where({ id: booking_id, user_id })
-    .del()
+    .update({ status: 'dibatalkan', fleet_id: null })
     .returning('*');
     
   return deleted;
 };
 
 const deleteBooking = async (booking_id, user_id) => {
-  const deletedRows = await db('charter_bookings')
+  const updatedRows = await db('charter_bookings')
     .where({ id: booking_id, user_id })
     .whereIn('status', ['selesai_final', 'dibatalkan', 'ditolak'])
-    .del();
+    .update({ is_hidden: true });
     
-  return deletedRows > 0;
+  return updatedRows > 0;
 };
 
 module.exports = {

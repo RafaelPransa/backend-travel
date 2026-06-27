@@ -85,7 +85,7 @@ exports.up = async function(knex) {
         IF NEW.transaction_status = 'selesai' AND (OLD.transaction_status IS NULL OR OLD.transaction_status <> 'selesai') THEN
             INSERT INTO cashflows (amount, type, category, description, reference_id, created_at)
             VALUES (
-                NEW.total_price,
+                NEW.original_price,
                 'income',
                 'package_shipment',
                 'Pendapatan pengiriman paket (Resi: ' || NEW.waybill_number || ') - Pengirim: ' || NEW.sender_name || ', Penerima: ' || NEW.receiver_name,

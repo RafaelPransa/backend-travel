@@ -72,16 +72,19 @@ const createShipment = async (req, res) => {
       package_description,
       weight,
       dimension,
-      seat_qty: seat_qty || 1,
       payment_method,
       route_id: route_id || null,
-      total_price: total_price || null,
+      departure_date: req.body.departure_date ? new Date(new Date(req.body.departure_date).getTime() + 7 * 3600 * 1000).toISOString().split('T')[0] : new Date(Date.now() + 7 * 3600 * 1000).toISOString().split('T')[0],
       transaction_status: 'menunggu_konfirmasi',
-      status: 'received'
+      status: 'received',
+      waybill_number: 'PKT-' + Date.now().toString().slice(-6) + '-' + Math.random().toString(36).substring(2, 6).toUpperCase()
     };
     
+    if (req.user && req.user.id) {
+      data.user_id = req.user.id;
+    }
+    
     if (receiver_kecamatan && isJabodetabek(receiver_kecamatan)) {
-      data.total_price = 250000;
       data.original_price = 250000;
       data.transaction_status = 'menunggu_pembayaran';
       // status 'received' means the package is received by the system? Keep it as received or menunggu_pembayaran? 
@@ -112,9 +115,25 @@ const createShipment = async (req, res) => {
       const TravelModel = require('../models/travel.model');
       const db = require('../config/db');
 
+      const requiredSeats = (weight >= 60 || dimension === 'super_besar') ? 2 : 1;
+
       // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
       const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
-      let isAvailable = idleFleets.length > 0;
+      let isAvailable = false;
+      let assignedFleetId = null;
+      let assignedSeatNumbers = [];
+
+      for (const idle of idleFleets) {
+        if (idle.seat_capacity >= requiredSeats) {
+          isAvailable = true;
+          assignedFleetId = idle.id;
+          // Assign seats from the back
+          for (let i = idle.seat_capacity; i > idle.seat_capacity - requiredSeats; i--) {
+            assignedSeatNumbers.push(i);
+          }
+          break;
+        }
+      }
 
       // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
       if (!isAvailable) {
@@ -124,8 +143,19 @@ const createShipment = async (req, res) => {
 
         for (const sched of schedules) {
           const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
-          if (loadInfo.status !== 'full') {
-            isAvailable = true; // Ada schedule Rute yang belum penuh, Paket bisa menumpang
+          if (loadInfo.sisa_kursi >= requiredSeats) {
+            isAvailable = true;
+            assignedFleetId = sched.fleet_id;
+            
+            // Pick empty seats from the back
+            let seatsToAssign = [];
+            for (let i = loadInfo.max_capacity; i >= 1; i--) {
+                if (!loadInfo.occupied_seats_list.includes(i)) {
+                    seatsToAssign.push(i);
+                    if (seatsToAssign.length === requiredSeats) break;
+                }
+            }
+            assignedSeatNumbers = seatsToAssign;
             break;
           }
         }
@@ -138,7 +168,8 @@ const createShipment = async (req, res) => {
         });
       }
 
-      data.departure_date = departure_date;
+      data.fleet_id = assignedFleetId;
+      data.seat_numbers = JSON.stringify(assignedSeatNumbers);
     }
     
     // Jika ada token yang valid dari customer, kita bisa ambil user_id dari req.user opsional

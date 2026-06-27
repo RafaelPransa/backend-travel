@@ -93,7 +93,7 @@ const requestCharter = async (req, res) => {
       notes,
       payment_method,
       offered_price,
-      status: 'menunggu_pembayaran' 
+      status: 'menunggu_konfirmasi' // Waiting for Admin to determine the price
     });
 
     return res.status(201).json({
@@ -149,16 +149,21 @@ const verifyCharterPayment = async (req, res) => {
       });
     }
 
+    const { driver_id, fleet_id, driver_2_id, offered_price } = req.body;
+
     let nextStatus = 'selesai';
     if (booking.status === 'menunggu_konfirmasi') {
-      if (booking.payment_proof_url) {
-        nextStatus = 'selesai';
+      if (!booking.payment_proof_url && booking.payment_method !== 'cash') {
+        // Jika memproses pesanan baru (belum ada bukti bayar dan bukan tunai), maka ini adalah tahap Penentuan Harga
+        nextStatus = 'menunggu_pembayaran';
       } else {
-        nextStatus = booking.payment_method === 'cashless' ? 'menunggu_pembayaran' : 'selesai';
+        // Jika memverifikasi bukti pembayaran
+        nextStatus = 'selesai';
       }
+    } else if (booking.status === 'menunggu_pembayaran') {
+      nextStatus = 'menunggu_pembayaran';
     }
 
-    const { driver_id, fleet_id, driver_2_id, offered_price } = req.body;
     const extraFields = {};
     if (driver_id !== undefined) extraFields.driver_id = driver_id;
     if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;

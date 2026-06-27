@@ -18,5 +18,8 @@ router.put("/:type/:id/change-fleet", authenticate, authorize("super_admin"), as
 // PUT /api/admin/assignments/:type/:id/reject
 router.put("/:type/:id/reject", authenticate, authorize("super_admin"), assignmentController.rejectAssignment);
 
+// PUT /api/admin/assignments/:type/:id/unassign
+router.put("/:type/:id/unassign", authenticate, authorize("super_admin"), assignmentController.unassignDriver);
+
 module.exports = router;
 
