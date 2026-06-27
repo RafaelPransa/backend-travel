@@ -4,7 +4,7 @@ const getMySchedules = async (req, res) => {
   try {
     const driver_id = req.user.id;
     const schedules = await DriverModel.getAssignedSchedules(driver_id);
-    
+
     return res.status(200).json({
       status: 'success',
       message: 'Berhasil mengambil daftar tugas supir',
@@ -52,7 +52,7 @@ const updateTravelBookingStatus = async (req, res) => {
   try {
     const driver_id = req.user.id;
     const { id } = req.params;
-    const { status } = req.body; 
+    const { status } = req.body;
 
     const updated = await DriverModel.updateTravelBookingStatus(id, driver_id, status);
 

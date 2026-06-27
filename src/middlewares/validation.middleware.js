@@ -118,9 +118,11 @@ const adminValidationSchemas = {
     image_url: z.string().optional().or(z.literal(''))
   }),
   expense: z.object({
-    amount: z.number().positive(),
-    category: z.string().min(1),
-    description: z.string().optional()
+    amount: z.coerce.number().positive(),
+    type: z.string().min(1),
+    pic: z.string().min(1),
+    date: z.string().min(1),
+    detail: z.string().optional()
   }),
   approveExpense: z.object({
     status: z.enum(['approved', 'rejected'], { errorMap: () => ({ message: "Status persetujuan tidak valid" }) })

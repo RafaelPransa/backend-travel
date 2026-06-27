@@ -4,6 +4,8 @@ const cashflowController = require('../controllers/cashflow.controller');
 const { validate, adminValidationSchemas } = require('../middlewares/validation.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 
+const { uploadExpense } = require('../middlewares/upload.middleware');
+
 // Gunakan middleware keamanan di semua rute ini (Hanya Super Admin)
 router.use(authenticate, authorize('super_admin'));
 
@@ -128,7 +130,7 @@ router.get('/transactions', cashflowController.getRecentTransactions);
  *       201:
  *         description: Pengeluaran operasional berhasil dicatat
  */
-router.post('/expense', validate(adminValidationSchemas.expense), cashflowController.addExpense);
+router.post('/expense', uploadExpense.single('file'), validate(adminValidationSchemas.expense), cashflowController.addExpense);
 
 /**
  * @openapi

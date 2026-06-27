@@ -12,6 +12,9 @@ const getCashflowSummary = async (req, res) => {
       data: {
         total_income: summary.totalIncome,
         total_expense: summary.totalExpense,
+        today_income: summary.todayIncome,
+        last_month_income: summary.lastPeriodIncome,
+        driver_salary: summary.driverSalary,
         net_profit: netProfit
       }
     });
@@ -26,14 +29,25 @@ const getCashflowSummary = async (req, res) => {
 
 const addExpense = async (req, res) => {
   try {
-    const { amount, category, description } = req.body;
+    const { amount, type, detail, date, pic } = req.body;
+    let proof_url = null;
     
+    if (req.file) {
+      proof_url = `/uploads/expenses/${req.file.filename}`;
+    }
+
     const expenseData = {
       amount,
       type: 'expense',
-      category,
-      description
+      category: type,
+      description: detail || '',
+      pic: pic || null,
+      proof_url
     };
+
+    if (date) {
+      expenseData.created_at = new Date(date).toISOString();
+    }
 
     const newExpense = await CashflowModel.addCashflow(expenseData);
 
@@ -107,9 +121,9 @@ const approveExpense = async (req, res) => {
 const getRecentTransactions = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    
+
     const result = await CashflowModel.getPaginatedTransactions(page, limit);
-    
+
     return res.status(200).json({
       status: 'success',
       message: 'Berhasil mengambil data transaksi cashflow',
