@@ -18,6 +18,7 @@ const assignmentRoutes = require('./routes/assignment.routes');
 const contentRoutes = require('./routes/content.routes');
 const cmsRoutes = require('./routes/cms.routes');
 const startSeatLockCron = require('./jobs/seatLockCron');
+const startAutoTransitionCron = require('./jobs/autoTransitionCron');
 
 const app = express();
 
@@ -124,5 +125,6 @@ app.use((err, req, res, next) => {
 
 // Hidupkan Background Tasks (Cron Jobs)
 startSeatLockCron();
+startAutoTransitionCron();
 
 module.exports = app;

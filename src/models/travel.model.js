@@ -135,6 +135,14 @@ const calculateLoad = async (route_id, dateString) => {
 
   let status = used_seats >= max_capacity ? 'full' : 'available';
 
+  // FIX: Jika jadwal sudah ditugaskan ke supir dan statusnya sedang bertugas/berangkat,
+  // paksa status menjadi 'full' agar tidak muncul di pilihan ketersediaan jadwal.
+  // (Jadwal yang hanya berstatus 'scheduled' tetap available meski driver_id sudah ada)
+  if (schedule && ['on_going', 'departed', 'completed', 'sedang_bertugas'].includes(schedule.status)) {
+    status = 'full';
+    used_seats = max_capacity; // Set agar sisa_kursi menjadi 0 secara matematis
+  }
+
   return {
     id: schedule ? schedule.id : "",
     status,
@@ -557,13 +565,13 @@ const cancelBooking = async (booking_id, user_id) => {
     throw error;
   }
 
-  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi'].includes(booking.booking_status)) {
+  if (!['selesai', 'COMPLETED', 'APPROVED', 'menunggu_pembayaran', 'menunggu_konfirmasi', 'dibayar'].includes(booking.booking_status)) {
     const error = new Error(`Pesanan dengan status ${booking.booking_status} tidak dapat dibatalkan oleh pelanggan.`);
     error.code = 'INVALID_STATUS';
     throw error;
   }
 
-  if (['selesai', 'COMPLETED', 'APPROVED'].includes(booking.booking_status)) {
+  if (['selesai', 'COMPLETED', 'APPROVED', 'dibayar'].includes(booking.booking_status)) {
     const departureTime = new Date(booking.departure_time);
     const deadline = new Date(departureTime);
     deadline.setHours(12, 0, 0, 0); 
@@ -578,7 +586,7 @@ const cancelBooking = async (booking_id, user_id) => {
 
   const [deleted] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
-    .del()
+    .update({ booking_status: 'dibatalkan' })
     .returning('*');
     
   if (deleted) {
