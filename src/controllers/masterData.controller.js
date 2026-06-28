@@ -159,6 +159,17 @@ const updateRecord = (table) => async (req, res) => {
       }
     }
 
+    // AUTO MERGE JIKA TRAVEL DIVALIDASI
+    if (table === 'travel_bookings' && updated.booking_status === 'dibayar' && data.booking_status === 'dibayar') {
+      const db = require('../config/db');
+      const schedule = await db('schedules').where('id', updated.schedule_id).first();
+      if (schedule && schedule.fleet_id && schedule.departure_time) {
+        const departureDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+        const { autoMergePackagesToRoute } = require('../models/travel.model');
+        await autoMergePackagesToRoute(schedule.id, departureDate);
+      }
+    }
+
     return res.status(200).json({ status: 'success', message: 'Data berhasil diubah', data: updated });
   } catch (error) {
     console.error(`Error updateRecord ${table}:`, error);

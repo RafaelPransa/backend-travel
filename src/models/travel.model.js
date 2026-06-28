@@ -8,6 +8,7 @@ const calculateLoad = async (route_id, dateString) => {
   const schedule = await db('schedules')
     .where('route_id', route_id)
     .whereRaw('DATE(departure_time) = ?', [dateString])
+    .whereNotIn('status', ['dibatalkan'])
     .first();
 
   let used_seats = 0;
@@ -84,10 +85,12 @@ const calculateLoad = async (route_id, dateString) => {
         used_seats += 1;
       });
     } else {
-      used_seats += (p.seat_qty || 1);
+      let packageSeats = (p.seat_qty || 1);
       if (p.weight >= 60 || p.dimension === 'super_besar') {
-        used_seats += 1;
+        packageSeats += 1;
       }
+      used_seats += packageSeats;
+      extraSeatsCount += packageSeats; // Tambahkan ke extraSeatsCount agar diblokir visual dari belakang
     }
   });
 
@@ -341,10 +344,11 @@ const createBooking = async (data) => {
   }
 
   if (!schedule_id && data.route_id && data.departure_date) {
-    // Cek apakah schedule sudah ada di tanggal tersebut
+    // Cek apakah schedule sudah ada di tanggal tersebut yang belum dibatalkan
     const existingSchedule = await db('schedules')
       .where('route_id', data.route_id)
       .whereRaw('DATE(departure_time) = ?', [data.departure_date])
+      .whereNotIn('status', ['dibatalkan'])
       .first();
 
     if (existingSchedule) {
@@ -483,9 +487,6 @@ const createBooking = async (data) => {
     promo_id: appliedPromoId
   }).returning('*');
 
-  // Panggil auto-merge untuk menarik paket khusus ke dalam rute ini
-  await autoMergePackagesToRoute(schedule_id, data.departure_date);
-
   return booking;
 };
 
@@ -622,10 +623,10 @@ const deleteBooking = async (booking_id, user_id) => {
     .where('travel_bookings.user_id', user_id)
     .first();
 
-  // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
+  // Hanya bisa dihapus jika statusnya dibatalkan, ditolak, atau selesai
   const updatedRows = await db('travel_bookings')
     .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
+    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
     .update({ is_hidden: true });
 
   if (updatedRows > 0 && booking) {

@@ -113,7 +113,7 @@ const cancelBooking = async (booking_id, user_id) => {
 const deleteBooking = async (booking_id, user_id) => {
   const updatedRows = await db('charter_bookings')
     .where({ id: booking_id, user_id })
-    .whereIn('status', ['selesai_final', 'dibatalkan', 'ditolak'])
+    .whereIn('status', ['selesai', 'selesai_final', 'COMPLETED', 'dibatalkan', 'ditolak', 'REJECTED'])
     .update({ is_hidden: true });
     
   return updatedRows > 0;
