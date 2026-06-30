@@ -97,20 +97,32 @@ const adminValidationSchemas = {
     phone_number: z.string().min(10),
     role: z.enum(['customer', 'driver'])
   }),
+  userUpdate: z.object({
+    name: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    password: z.string().min(6).optional(),
+    phone_number: z.string().min(10).optional(),
+    role: z.enum(['customer', 'driver']).optional()
+  }),
   banner: z.object({
     title: z.string().min(1),
     image_url: z.string().optional().or(z.literal('')),
+    badge_text: z.string().optional().or(z.literal('')),
+    description: z.string().optional().or(z.literal('')),
     is_active: z.boolean().or(z.enum(['true', 'false'])).optional()
   }),
   destination: z.object({
     name: z.string().min(1),
+    location: z.string().min(1),
     description: z.string().min(1),
     image_url: z.string().optional().or(z.literal(''))
   }),
   expense: z.object({
-    amount: z.number().positive(),
-    category: z.string().min(1),
-    description: z.string().optional()
+    amount: z.coerce.number().positive(),
+    type: z.string().min(1),
+    pic: z.string().min(1),
+    date: z.string().min(1),
+    detail: z.string().optional()
   }),
   approveExpense: z.object({
     status: z.enum(['approved', 'rejected'], { errorMap: () => ({ message: "Status persetujuan tidak valid" }) })
@@ -136,13 +148,12 @@ const adminValidationSchemas = {
     package_description: z.string().min(3, 'Deskripsi paket minimal 3 karakter').optional(),
     weight: z.coerce.number().positive('Berat paket harus bernilai positif').optional(),
     dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi tidak valid" }) }).optional(),
-    seat_qty: z.coerce.number().int().min(1, 'Jumlah kursi minimal 1').optional(),
     payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional(),
     transaction_status: z.enum(['menunggu_konfirmasi', 'menunggu_pembayaran', 'selesai', 'dibatalkan', 'ditolak']).optional(),
     status: z.enum(['received', 'sorting', 'manifesting', 'on_transit', 'delivered']).optional(),
     route_id: z.string().uuid('Format route_id tidak valid').nullable().optional(),
     fleet_id: z.string().uuid('Format fleet_id tidak valid').nullable().optional(),
-    total_price: z.coerce.number().nonnegative('Harga total tidak boleh negatif').optional()
+    original_price: z.coerce.number().nonnegative('Harga asli tidak boleh negatif').optional()
   }),
   institutionalExpense: z.object({
     expense_type: z.enum(['nib', 'pajak_kendaraan']),

@@ -25,6 +25,7 @@ const getActiveDutiesList = async () => {
     .leftJoin('users as driver_cadangan', 'schedules.driver_2_id', 'driver_cadangan.id')
     .select(
       'schedules.id',
+      'schedules.fleet_id',
       'schedules.departure_time',
       'schedules.status',
       'schedules.route_id',
@@ -35,7 +36,7 @@ const getActiveDutiesList = async () => {
       'driver1.name as driver_name',
       'driver_cadangan.name as driver_2_name'
     )
-    .whereRaw("DATE(schedules.departure_time::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+    .whereRaw("DATE(schedules.departure_time::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
     .whereNot('schedules.status', 'cancelled')
     .orderBy('schedules.departure_time', 'asc');
 
@@ -58,8 +59,10 @@ const getActiveDutiesList = async () => {
       'fleets.plate_number',
       'fleets.car_type as fleet_car_type'
     )
-    .where('charter_bookings.status', 'selesai')
-    .whereRaw("CURRENT_DATE >= charter_bookings.departure_date AND CURRENT_DATE <= charter_bookings.return_date")
+    .where(function() {
+      this.whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going', 'selesai'])
+          .orWhereRaw("DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') >= DATE(charter_bookings.departure_date::timestamptz AT TIME ZONE 'Asia/Jakarta') AND DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') <= DATE(charter_bookings.return_date::timestamptz AT TIME ZONE 'Asia/Jakarta')");
+    })
     .orderBy('charter_bookings.departure_date', 'asc');
 
   const allDuties = [];
@@ -70,11 +73,12 @@ const getActiveDutiesList = async () => {
   if (activeSchedules.length > 0) {
     const scheduleIds = activeSchedules.map(s => s.id);
     const routeIds = [...new Set(activeSchedules.map(s => s.route_id))];
+    const fleetIds = [...new Set(activeSchedules.map(s => s.fleet_id).filter(Boolean))];
 
     // Batch 1: Hitung jumlah penumpang per jadwal
     const passengerCounts = await db('travel_bookings')
       .whereIn('schedule_id', scheduleIds)
-      .where('booking_status', 'selesai')
+      .whereIn('booking_status', ['menunggu_penjemputan', 'dalam_penjemputan', 'dalam_perjalanan', 'selesai', 'dibayar'])
       .select('schedule_id')
       .count('id as total')
       .groupBy('schedule_id');
@@ -84,20 +88,20 @@ const getActiveDutiesList = async () => {
 
     // Batch 2: Hitung jumlah paket per rute hari ini
     const packageCounts = await db('package_shipments')
-      .whereIn('route_id', routeIds)
-      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+      .whereIn('fleet_id', fleetIds)
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
       .whereNot('status', 'delivered')
-      .select('route_id')
+      .select('fleet_id')
       .count('id as total')
-      .groupBy('route_id');
+      .groupBy('fleet_id');
 
     const packageMap = {};
-    packageCounts.forEach(r => { packageMap[r.route_id] = parseInt(r.total || 0, 10); });
+    packageCounts.forEach(r => { packageMap[r.fleet_id] = parseInt(r.total || 0, 10); });
 
     // Batch 3: Total pendapatan tiket per jadwal
     const ticketRevenues = await db('travel_bookings')
       .whereIn('schedule_id', scheduleIds)
-      .where('booking_status', 'selesai')
+      .whereNotIn('booking_status', ['dibatalkan', 'ditolak'])
       .select('schedule_id')
       .sum('price as total')
       .groupBy('schedule_id');
@@ -107,21 +111,21 @@ const getActiveDutiesList = async () => {
 
     // Batch 4: Total pendapatan paket per rute hari ini
     const packageRevenues = await db('package_shipments')
-      .whereIn('route_id', routeIds)
-      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
-      .select('route_id')
-      .sum('total_price as total')
-      .groupBy('route_id');
+      .whereIn('fleet_id', fleetIds)
+      .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
+      .select('fleet_id')
+      .sum('original_price as total')
+      .groupBy('fleet_id');
 
     const packageRevenueMap = {};
-    packageRevenues.forEach(r => { packageRevenueMap[r.route_id] = parseFloat(r.total || 0); });
+    packageRevenues.forEach(r => { packageRevenueMap[r.fleet_id] = parseFloat(r.total || 0); });
 
     // Gabungkan data dari lookup maps (O(1) per schedule, bukan O(n) query)
     for (const s of activeSchedules) {
       const passengersCount = passengerMap[s.id] || 0;
-      const packagesCount = packageMap[s.route_id] || 0;
+      const packagesCount = packageMap[s.fleet_id] || 0;
       const ticketRevenue = ticketRevenueMap[s.id] || 0;
-      const packageRevenue = packageRevenueMap[s.route_id] || 0;
+      const packageRevenue = packageRevenueMap[s.fleet_id] || 0;
       const estimated_revenue = ticketRevenue + packageRevenue;
 
       allDuties.push({
@@ -173,7 +177,7 @@ const getDashboardData = async () => {
   // 1. Total pendapatan hari ini
   const todayRevenueResult = await db('cashflows')
     .where('type', 'income')
-    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
     .sum('amount as total');
   const today_revenue = parseFloat(todayRevenueResult[0].total || 0);
 
@@ -191,13 +195,13 @@ const getDashboardData = async () => {
 
   // 4. Volume pesanan hari ini (travel + charter + package)
   const travelToday = await db('travel_bookings')
-    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
     .count('id as total');
   const charterToday = await db('charter_bookings')
-    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
     .count('id as total');
   const packageToday = await db('package_shipments')
-    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE")
+    .whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
     .count('id as total');
 
   const orders_today = parseInt(travelToday[0].total || 0, 10) +
@@ -229,32 +233,34 @@ const getDashboardData = async () => {
 };
 
 const getRecentBookings = async () => {
-  const travelBooking = await db('travel_bookings')
-    .leftJoin('users', 'travel_bookings.user_id', 'users.id')
-    .leftJoin('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .leftJoin('routes', 'schedules.route_id', 'routes.id')
-    .select(
-      'travel_bookings.id',
-      'users.name as customer_name',
-      'travel_bookings.seat_number',
-      'travel_bookings.price',
-      'routes.origin as route_origin',
-      'routes.destination as route_destination'
-    )
-    .orderBy('travel_bookings.created_at', 'desc')
-    .first();
+    const travelBooking = await db('travel_bookings')
+      .leftJoin('users', 'travel_bookings.user_id', 'users.id')
+      .leftJoin('schedules', 'travel_bookings.schedule_id', 'schedules.id')
+      .leftJoin('routes', 'schedules.route_id', 'routes.id')
+      .whereNotIn('travel_bookings.booking_status', ['selesai', 'selesai_final', 'dalam_penjemputan', 'menunggu_penjemputan', 'dibatalkan', 'ditolak'])
+      .select(
+        'travel_bookings.id',
+        'users.name as customer_name',
+        'travel_bookings.seat_number',
+        'travel_bookings.price',
+        'routes.origin as route_origin',
+        'routes.destination as route_destination'
+      )
+      .orderBy('travel_bookings.created_at', 'desc')
+      .first();
 
-  const charterBooking = await db('charter_bookings')
-    .leftJoin('users', 'charter_bookings.user_id', 'users.id')
-    .select(
-      'charter_bookings.id',
-      'users.name as customer_name',
-      'charter_bookings.car_type',
-      db.raw('COALESCE(charter_bookings.offered_price, charter_bookings.original_price, 0) as total_price'),
-      'charter_bookings.destination'
-    )
-    .orderBy('charter_bookings.created_at', 'desc')
-    .first();
+    const charterBooking = await db('charter_bookings')
+      .leftJoin('users', 'charter_bookings.user_id', 'users.id')
+      .whereNotIn('charter_bookings.status', ['selesai', 'selesai_final', 'dibatalkan', 'ditolak', 'dalam_penjemputan', 'on_going', 'menunggu_penjemputan', 'disetujui'])
+      .select(
+        'charter_bookings.id',
+        'users.name as customer_name',
+        'charter_bookings.car_type',
+        db.raw('COALESCE(charter_bookings.offered_price, charter_bookings.original_price, 0) as total_price'),
+        'charter_bookings.destination'
+      )
+      .orderBy('charter_bookings.created_at', 'desc')
+      .first();
 
   return {
     travel: travelBooking || null,

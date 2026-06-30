@@ -116,7 +116,7 @@ const verifyTravelBooking = async (booking_id) => {
   if (booking.booking_status === 'menunggu_konfirmasi') {
     if (booking.payment_proof_url) {
       // Kasus 1: Bukti bayar sudah diunggah, admin memverifikasi pembayaran (Lunas)
-      updatePayload = { booking_status: 'selesai' };
+      updatePayload = { booking_status: 'dibayar' };
     } else {
       // Kasus 2: Baru diajukan oleh user, admin mengonfirmasi pesanan tersebut
       if (booking.payment_method === 'cashless') {
@@ -124,8 +124,8 @@ const verifyTravelBooking = async (booking_id) => {
         const locked_until = new Date(Date.now() + 10 * 60000);
         updatePayload = { booking_status: 'menunggu_pembayaran', locked_until };
       } else {
-        // Jika cash, langsung ubah ke selesai (terkonfirmasi)
-        updatePayload = { booking_status: 'selesai' };
+        // Jika cash, langsung ubah ke dibayar (terkonfirmasi)
+        updatePayload = { booking_status: 'dibayar' };
       }
     }
   } else {
@@ -180,7 +180,7 @@ const getPackageShipments = async () => {
       'package_shipments.dimension',
       'package_shipments.status',
       'package_shipments.transaction_status',
-      'package_shipments.total_price as price',
+      'package_shipments.original_price as price',
       'package_shipments.payment_method',
       'package_shipments.payment_proof_url',
       'package_shipments.created_at',
@@ -192,6 +192,13 @@ const getPackageShipments = async () => {
     .orderBy('package_shipments.created_at', 'desc');
 };
 
+const deleteTravelBooking = async (booking_id) => {
+  const deletedRows = await db('travel_bookings')
+    .where('id', booking_id)
+    .del();
+  return deletedRows > 0;
+};
+
 module.exports = {
   getTableData,
   getById,
@@ -201,6 +208,7 @@ module.exports = {
   getTravelBookings,
   verifyTravelBooking,
   updateTravelBookingStatus,
+  deleteTravelBooking,
   getPackageShipments
 };
 

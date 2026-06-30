@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 const getAllCashflows = async (filter) => {
   let query = db('cashflows').orderBy('created_at', 'desc');
-  
+
   if (filter === 'today') {
     query = query.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
   } else if (filter === 'weekly') {
@@ -12,37 +12,51 @@ const getAllCashflows = async (filter) => {
   } else if (filter === 'yearly') {
     query = query.where('created_at', '>=', db.raw("NOW() - INTERVAL '1 year'"));
   }
-  
+
   return query;
 };
 
 const getSummary = async (filter) => {
   let queryIncome = db('cashflows').where('type', 'income');
   let queryExpense = db('cashflows').where('type', 'expense');
+  let todayIncomeQuery = db('cashflows').where('type', 'income').whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
+  let lastPeriodIncomeQuery = db('cashflows').where('type', 'income');
 
   if (filter === 'today') {
     queryIncome = queryIncome.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
     queryExpense = queryExpense.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE");
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE - INTERVAL '1 day'");
   } else if (filter === 'weekly') {
     queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
     queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '14 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '7 days'"));
   } else if (filter === 'monthly') {
     queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
     queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '60 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '30 days'"));
   } else if (filter === 'yearly') {
     queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '1 year'"));
     queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '1 year'"));
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '2 years'")).where('created_at', '<', db.raw("NOW() - INTERVAL '1 year'"));
   }
 
   const incomeResult = await queryIncome.sum('amount as total');
   const expenseResult = await queryExpense.sum('amount as total');
+  const todayResult = await todayIncomeQuery.sum('amount as total');
+  const lastPeriodResult = await lastPeriodIncomeQuery.sum('amount as total');
 
   const totalIncome = parseFloat(incomeResult[0].total || 0);
   const totalExpense = parseFloat(expenseResult[0].total || 0);
+  const todayIncome = parseFloat(todayResult[0].total || 0);
+  const lastPeriodIncome = parseFloat(lastPeriodResult[0].total || 0);
+  const driverSalary = totalIncome * 0.4;
 
   return {
     totalIncome,
-    totalExpense
+    totalExpense,
+    todayIncome,
+    lastPeriodIncome,
+    driverSalary
   };
 };
 
@@ -92,6 +106,17 @@ const getPaginatedTransactions = async (page = 1, limit = 10) => {
 
   // Ambil data dengan limit dan offset
   const records = await db('cashflows')
+    .select(
+      'cashflows.*',
+      db.raw(`
+        COALESCE(
+          (SELECT payment_method::text FROM travel_bookings WHERE id = cashflows.reference_id AND cashflows.category = 'travel_ticket'),
+          (SELECT payment_method::text FROM charter_bookings WHERE id = cashflows.reference_id AND cashflows.category = 'charter_booking'),
+          (SELECT payment_method::text FROM package_shipments WHERE id = cashflows.reference_id AND cashflows.category = 'package_shipment'),
+          '-'
+        ) as payment_method
+      `)
+    )
     .orderBy('created_at', 'desc')
     .limit(parsedLimit)
     .offset(offset);

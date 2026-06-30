@@ -6,68 +6,113 @@ const getAssignments = async (req, res) => {
 
   try {
     const routeSchedulesQuery = db("schedules")
-      .join("routes", "schedules.route_id", "routes.id")
+      .leftJoin("routes", "schedules.route_id", "routes.id")
       .leftJoin("fleets", "schedules.fleet_id", "fleets.id")
       .select(
         "schedules.id",
         "schedules.departure_time as departure_date",
         "schedules.fleet_id",
+        "schedules.route_id",
         "fleets.car_type as fleet_car_type",
         "fleets.plate_number as fleet_plate_number",
         "fleets.seat_capacity as fleet_capacity",
         "routes.origin",
-        "routes.destination"
+        "routes.destination",
+        "schedules.driver_id",
+        "schedules.driver_2_id"
       );
+
+    const todayStr = new Date().toISOString().split('T')[0];
 
     if (phase === 'pending') {
       routeSchedulesQuery.whereNull('schedules.driver_id')
-        .where('schedules.departure_time', '>=', new Date().toISOString().split('T')[0]);
+        .whereRaw('DATE(schedules.departure_time) >= ?', [todayStr]);
+    } else if (phase === 'assigned') {
+      routeSchedulesQuery.whereNotNull('schedules.driver_id')
+        .whereIn('schedules.status', ['scheduled', 'on_going', 'departed'])
+        .whereRaw('DATE(schedules.departure_time) > ?', [todayStr]);
     } else if (phase === 'active') {
       routeSchedulesQuery.whereNotNull('schedules.driver_id')
-        .whereIn('schedules.status', ['scheduled', 'on_going', 'departed']);
+        .whereIn('schedules.status', ['scheduled', 'on_going', 'departed'])
+        .whereRaw('DATE(schedules.departure_time) <= ?', [todayStr]);
     } else if (phase === 'completed') {
       routeSchedulesQuery.where('schedules.status', 'completed');
     }
 
     const routeSchedules = await routeSchedulesQuery;
 
-    const enrichedRoutes = await Promise.all(routeSchedules.map(async (sched) => {
+    const enrichedRoutes = (await Promise.all(routeSchedules.map(async (sched) => {
       // Get travel_bookings
       const travelBookings = await db('travel_bookings')
         .where('schedule_id', sched.id)
         .whereNotIn('booking_status', ['dibatalkan', 'ditolak']);
-      
+
       const total_passengers = travelBookings.length;
       const passenger_revenue = travelBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+
+      // Count validated passengers
+      const validTravelBookings = travelBookings.filter(b =>
+        ['dibayar', 'dalam_penjemputan', 'selesai', 'selesai_final'].includes(b.booking_status)
+      );
+      const valid_passengers = validTravelBookings.length;
+      const valid_passenger_revenue = validTravelBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
 
       // Get package_shipments
       let package_revenue = 0;
       let total_packages = 0;
-      if (sched.fleet_id && sched.departure_date) {
+      let valid_packages = 0;
+      let valid_package_revenue = 0;
+      if (sched.fleet_id) {
         const depDate = new Date(sched.departure_date).toISOString().split('T')[0];
         const packages = await db('package_shipments')
           .where('fleet_id', sched.fleet_id)
-          .whereRaw('DATE(departure_date) = ?', [depDate])
-          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
-        
+          .where(function () {
+            this.whereRaw('DATE(created_at) <= ?', [depDate]);
+          })
+          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered']);
+
         total_packages = packages.length;
-        package_revenue = packages.reduce((sum, p) => sum + (parseFloat(p.total_price) || 0), 0);
+        package_revenue = packages.reduce((sum, p) => sum + (parseFloat(p.original_price) || 0), 0);
+
+        // Count validated packages
+        const validPackages = packages.filter(p => {
+          const paymentStatus = p.transaction_status || p.status;
+          const deliveryStatus = p.status;
+
+          const isPickupList = deliveryStatus === 'dalam_penjemputan' || deliveryStatus === 'menunggu_penjemputan' ||
+            (deliveryStatus === 'received' && (paymentStatus === 'dibayar' || paymentStatus === 'selesai'));
+          const isDone = ['selesai', 'completed', 'selesai_final', 'delivered'].includes(deliveryStatus);
+          const isProcessing = ['sorting', 'manifesting', 'on_transit'].includes(deliveryStatus);
+
+          return isPickupList || isDone || isProcessing;
+        });
+        valid_packages = validPackages.length;
+        valid_package_revenue = validPackages.reduce((sum, p) => sum + (parseFloat(p.original_price) || 0), 0);
+      }
+
+      // Only show in 'pending' if at least one booking/package is validated
+      if (phase === 'pending' && valid_passengers === 0 && valid_packages === 0) {
+        return null;
       }
 
       return {
         id: sched.id,
         type: "RUTE",
-        title: `Travel Reguler: ${sched.origin} ➔ ${sched.destination}`,
+        title: sched.origin && sched.destination 
+               ? `Travel Reguler: ${sched.origin} ➔ ${sched.destination}` 
+               : `Pengiriman Khusus Paket`,
         departure_date: sched.departure_date,
         fleet_id: sched.fleet_id,
+        driver_id: sched.driver_id,
+        driver_2_id: sched.driver_2_id,
         fleet_car_type: sched.fleet_car_type,
         fleet_plate_number: sched.fleet_plate_number,
         fleet_capacity: sched.fleet_capacity,
-        total_passengers,
-        total_packages,
-        total_revenue: passenger_revenue + package_revenue
+        total_passengers: phase === 'pending' ? valid_passengers : total_passengers,
+        total_packages: phase === 'pending' ? valid_packages : total_packages,
+        total_revenue: phase === 'pending' ? (valid_passenger_revenue + valid_package_revenue) : (passenger_revenue + package_revenue)
       };
-    }));
+    }))).filter(Boolean);
 
     // CHARTER
     const charterQuery = db("charter_bookings")
@@ -88,13 +133,21 @@ const getAssignments = async (req, res) => {
 
     if (phase === 'pending') {
       charterQuery.whereNull('charter_bookings.driver_id')
-        .whereIn('charter_bookings.status', ['dibayar', 'menunggu_penjemputan', 'dalam_penjemputan', 'disetujui']);
+        .whereIn('charter_bookings.status', ['dibayar', 'menunggu_penjemputan', 'dalam_penjemputan', 'disetujui', 'selesai']);
+    } else if (phase === 'assigned') {
+      charterQuery.whereNotNull('charter_bookings.driver_id')
+        .whereIn('charter_bookings.status', ['dibayar', 'disetujui', 'menunggu_penjemputan', 'dalam_penjemputan', 'on_going', 'selesai'])
+        .whereRaw('DATE(charter_bookings.departure_date) > ?', [todayStr]);
     } else if (phase === 'active') {
       charterQuery.whereNotNull('charter_bookings.driver_id')
-        .whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going']);
+        .whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going', 'selesai'])
+        .whereRaw('DATE(charter_bookings.departure_date) <= ?', [todayStr]);
     } else if (phase === 'completed') {
-      charterQuery.whereIn('charter_bookings.status', ['selesai_final', 'selesai', 'completed']);
+      charterQuery.whereIn('charter_bookings.status', ['selesai_final', 'completed']);
     }
+
+    // Perlu select driver_id dan driver_2_id dari charters
+    charterQuery.select("charter_bookings.*", "fleets.car_type as fleet_car_type", "fleets.plate_number as fleet_plate_number", "fleets.seat_capacity as fleet_capacity", "users.name as customer_name");
 
     const charterBookings = await charterQuery;
 
@@ -106,6 +159,8 @@ const getAssignments = async (req, res) => {
       departure_date: c.departure_date,
       return_date: c.return_date,
       fleet_id: c.fleet_id,
+      driver_id: c.driver_id,
+      driver_2_id: c.driver_2_id,
       fleet_car_type: c.fleet_car_type,
       fleet_plate_number: c.fleet_plate_number,
       fleet_capacity: c.fleet_capacity,
@@ -114,7 +169,7 @@ const getAssignments = async (req, res) => {
       total_revenue: parseFloat(c.total_price) || 0
     }));
 
-    const allAssignments = [...enrichedRoutes, ...enrichedCharters].sort((a, b) => 
+    const allAssignments = [...enrichedRoutes, ...enrichedCharters].sort((a, b) =>
       new Date(a.departure_date) - new Date(b.departure_date)
     );
 
@@ -130,7 +185,7 @@ const getAssignments = async (req, res) => {
 
 const assignDriver = async (req, res) => {
   const { type, id } = req.params;
-  const { driver_id, driver_2_id, pickup_time, fleet_id } = req.body;
+  const { driver_id, driver_2_id, pickup_time, fleet_id, force_active } = req.body;
 
   try {
     if (!driver_id) {
@@ -141,7 +196,7 @@ const assignDriver = async (req, res) => {
       const updatePayload = {
         driver_id,
         driver_2_id: driver_2_id || null,
-        status: "scheduled"
+        status: force_active ? "on_going" : "scheduled"
       };
       if (fleet_id) updatePayload.fleet_id = fleet_id;
 
@@ -154,18 +209,24 @@ const assignDriver = async (req, res) => {
           .where({ schedule_id: id })
           .update({ eta: pickup_time });
       }
-      
-      await db("travel_bookings")
-        .where({ schedule_id: id })
-        .whereIn("booking_status", ["menunggu_penjemputan", "dibayar", "selesai"])
-        .update({ booking_status: "dalam_penjemputan" });
-      
+
+      if (force_active) {
+        await db("travel_bookings")
+          .where({ schedule_id: id })
+          .whereIn("booking_status", ["menunggu_penjemputan", "dibayar", "selesai"])
+          .update({ booking_status: "dalam_penjemputan" });
+      }
+
     } else if (type === "CHARTER") {
       const updatePayload = {
         driver_id,
         driver_2_id: driver_2_id || null,
-        status: "dalam_penjemputan"
+        // Untuk charter, kalau force_active baru set 'dalam_penjemputan', kalau belum berarti misal tetap disetujui
+        status: force_active ? "dalam_penjemputan" : undefined
       };
+      // Hapus status jika undefined
+      if (!updatePayload.status) delete updatePayload.status;
+
       if (fleet_id) updatePayload.fleet_id = fleet_id;
 
       await db("charter_bookings")
@@ -191,9 +252,9 @@ const getAvailableReplacementFleets = async (req, res) => {
     if (!start_date) {
       return res.status(400).json({ status: 'error', message: 'start_date diperlukan' });
     }
-    
+
     const available = await getAvailableFleets(null, start_date, end_date || start_date);
-    
+
     return res.status(200).json({
       status: 'success',
       data: available
@@ -206,25 +267,26 @@ const getAvailableReplacementFleets = async (req, res) => {
 
 const rejectAssignment = async (req, res) => {
   const { type, id } = req.params;
-  
+
   try {
     await db.transaction(async (trx) => {
       if (type === "RUTE") {
         const schedule = await trx('schedules').where({ id }).first();
-        if(!schedule) return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
+        if (!schedule) return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
 
-        await trx('schedules').where({ id }).update({ status: 'dibatalkan', driver_id: null });
+        await trx('schedules').where({ id }).update({ status: 'dibatalkan', driver_id: null, fleet_id: null });
         await trx('travel_bookings').where({ schedule_id: id }).update({ booking_status: 'dibatalkan' });
-        
+
         if (schedule.fleet_id && schedule.departure_time) {
           const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
           await trx('package_shipments')
             .where('fleet_id', schedule.fleet_id)
-            .whereRaw('DATE(departure_date) = ?', [depDate])
-            .update({ status: 'dibatalkan' });
+            .whereRaw('DATE(created_at) <= ?', [depDate])
+            .whereNotIn('status', ['dibatalkan', 'ditolak', 'delivered', 'selesai'])
+            .update({ fleet_id: null });
         }
       } else if (type === "CHARTER") {
-        await trx('charter_bookings').where({ id }).update({ status: 'dibatalkan', driver_id: null });
+        await trx('charter_bookings').where({ id }).update({ status: 'dibatalkan', driver_id: null, fleet_id: null });
       }
     });
 
@@ -235,11 +297,42 @@ const rejectAssignment = async (req, res) => {
   }
 };
 
+const unassignDriver = async (req, res) => {
+  const { type, id } = req.params;
+
+  try {
+    await db.transaction(async (trx) => {
+      if (type === "RUTE") {
+        const schedule = await trx('schedules').where({ id }).first();
+        if (!schedule) return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
+
+        await trx('schedules').where({ id }).update({ driver_id: null, driver_2_id: null, fleet_id: null });
+        
+        if (schedule.fleet_id && schedule.departure_time) {
+          const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+          await trx('package_shipments')
+            .where('fleet_id', schedule.fleet_id)
+            .whereRaw('DATE(created_at) <= ?', [depDate])
+            .whereNotIn('status', ['dibatalkan', 'ditolak', 'delivered', 'selesai'])
+            .update({ fleet_id: null });
+        }
+      } else if (type === "CHARTER") {
+        await trx('charter_bookings').where({ id }).update({ driver_id: null, driver_2_id: null, fleet_id: null });
+      }
+    });
+
+    res.status(200).json({ status: "success", message: "Supir berhasil dibatalkan dari penugasan" });
+  } catch (error) {
+    console.error("Error unassignDriver:", error);
+    res.status(500).json({ status: "error", message: "Gagal menghapus supir" });
+  }
+};
+
 const changeFleet = async (req, res) => {
   const { type, id } = req.params;
   const { fleet_id } = req.body;
 
-  if(!fleet_id) return res.status(400).json({ status: 'error', message: 'fleet_id diperlukan' });
+  if (!fleet_id) return res.status(400).json({ status: 'error', message: 'fleet_id diperlukan' });
 
   try {
     await db.transaction(async (trx) => {
@@ -251,8 +344,8 @@ const changeFleet = async (req, res) => {
           const depDate = new Date(oldSchedule.departure_time).toISOString().split('T')[0];
           await trx('package_shipments')
             .where('fleet_id', oldSchedule.fleet_id)
-            .whereRaw('DATE(departure_date) = ?', [depDate])
-            .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED'])
+            .whereRaw('DATE(created_at) <= ?', [depDate])
+            .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered', 'selesai'])
             .update({ fleet_id });
         }
       } else if (type === "CHARTER") {
@@ -272,5 +365,6 @@ module.exports = {
   assignDriver,
   getAvailableReplacementFleets,
   rejectAssignment,
+  unassignDriver,
   changeFleet
 };
