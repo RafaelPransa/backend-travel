@@ -26,7 +26,7 @@ const checkAvailability = async (req, res) => {
 
     // Ambil semua armada yang tersedia (null carType untuk ambil semua)
     const availableFleets = await getAvailableFleets(null, start_date, end_date);
-    
+
     // Group by car_type
     const availabilityByCarType = {};
     availableFleets.forEach(f => {
@@ -45,14 +45,14 @@ const checkAvailability = async (req, res) => {
 
 const requestCharter = async (req, res) => {
   try {
-    const { 
-      car_type, 
-      destination, 
-      departure_date, 
-      return_date, 
-      pickup_address, 
-      dropoff_address, 
-      with_driver, 
+    const {
+      car_type,
+      destination,
+      departure_date,
+      return_date,
+      pickup_address,
+      dropoff_address,
+      with_driver,
       notes,
       payment_method
     } = req.body;
@@ -66,16 +66,16 @@ const requestCharter = async (req, res) => {
         message: 'Maaf, seluruh armada tipe ini sudah penuh dipesan pada tanggal tersebut.'
       });
     }
-    
+
     // Pilih armada pertama yang kosong
     const selectedFleet = availableFleets[0];
-    
+
     // Hitung total hari
     const days = calculateDays(departure_date, return_date);
-    
+
     // Hitung harga dasar
-    const basePricePerDay = selectedFleet.price && parseFloat(selectedFleet.price) > 0 
-      ? parseFloat(selectedFleet.price) 
+    const basePricePerDay = selectedFleet.price && parseFloat(selectedFleet.price) > 0
+      ? parseFloat(selectedFleet.price)
       : (selectedFleet.car_type.toLowerCase() === 'elf' ? 1200000 : 800000);
     const offered_price = basePricePerDay * days;
 
@@ -168,28 +168,28 @@ const verifyCharterPayment = async (req, res) => {
     if (driver_id !== undefined) extraFields.driver_id = driver_id;
     if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;
     if (driver_2_id !== undefined) extraFields.driver_2_id = driver_2_id;
-    
+
     // Promo Logic untuk Charter
     if (offered_price !== undefined) {
       let finalPrice = parseFloat(offered_price);
       let originalPrice = finalPrice;
       let appliedPromoId = null;
       let appliedDiscountAmount = 0;
-      
+
       try {
         const db = require('../config/db');
         const promo = await db('promotions').where('is_active', true).first();
-        
+
         if (promo && (promo.target_service.includes('all') || promo.target_service.includes('charter'))) {
           let discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
-          
+
           if (promo.max_discount && parseFloat(promo.max_discount) > 0) {
             const maxDiscount = parseFloat(promo.max_discount);
             if (discount > maxDiscount) {
               discount = maxDiscount;
             }
           }
-          
+
           finalPrice = finalPrice - discount;
           appliedPromoId = promo.id;
           appliedDiscountAmount = discount;
@@ -296,7 +296,7 @@ const cancelBooking = async (req, res) => {
     const userId = req.user.id;
 
     const updatedBooking = await CharterModel.cancelBooking(id, userId);
-    
+
     if (!updatedBooking) {
       return res.status(404).json({
         status: 'error',
@@ -324,7 +324,7 @@ const deleteBooking = async (req, res) => {
     const userId = req.user.id;
 
     const deleted = await CharterModel.deleteBooking(id, userId);
-    
+
     if (!deleted) {
       return res.status(404).json({
         status: 'error',

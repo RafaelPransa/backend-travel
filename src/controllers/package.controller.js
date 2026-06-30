@@ -117,45 +117,47 @@ const createShipment = async (req, res) => {
 
       const requiredSeats = (weight >= 60 || dimension === 'super_besar') ? 2 : 1;
 
-      // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
-      const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
       let isAvailable = false;
       let assignedFleetId = null;
       let assignedSeatNumbers = [];
 
-      for (const idle of idleFleets) {
-        if (idle.seat_capacity >= requiredSeats) {
+      // 1. PRIORITAS UTAMA: Cek armada yang dijadwalkan Rute hari ini (Penumpang)
+      // Tujuannya agar paket numpang di mobil rute yang sudah akan berangkat
+      const schedules = await db('schedules')
+        .whereRaw('DATE(departure_time) = ?', [departure_date])
+        .where('status', 'scheduled');
+
+      for (const sched of schedules) {
+        const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
+        if (loadInfo.sisa_kursi >= requiredSeats) {
           isAvailable = true;
-          assignedFleetId = idle.id;
-          // Assign seats from the back
-          for (let i = idle.seat_capacity; i > idle.seat_capacity - requiredSeats; i--) {
-            assignedSeatNumbers.push(i);
+          assignedFleetId = sched.fleet_id;
+          
+          // Pick empty seats from the back
+          let seatsToAssign = [];
+          for (let i = loadInfo.max_capacity; i >= 1; i--) {
+              if (!loadInfo.occupied_seats_list.includes(i)) {
+                  seatsToAssign.push(i);
+                  if (seatsToAssign.length === requiredSeats) break;
+              }
           }
+          assignedSeatNumbers = seatsToAssign;
           break;
         }
       }
 
-      // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
+      // 2. PRIORITAS KEDUA: Jika semua rute penuh / tidak ada rute, pakai mobil nganggur (Idle)
       if (!isAvailable) {
-        const schedules = await db('schedules')
-          .whereRaw('DATE(departure_time) = ?', [departure_date])
-          .where('status', 'scheduled');
-
-        for (const sched of schedules) {
-          const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
-          if (loadInfo.sisa_kursi >= requiredSeats) {
+        const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
+        
+        for (const idle of idleFleets) {
+          if (idle.seat_capacity >= requiredSeats) {
             isAvailable = true;
-            assignedFleetId = sched.fleet_id;
-            
-            // Pick empty seats from the back
-            let seatsToAssign = [];
-            for (let i = loadInfo.max_capacity; i >= 1; i--) {
-                if (!loadInfo.occupied_seats_list.includes(i)) {
-                    seatsToAssign.push(i);
-                    if (seatsToAssign.length === requiredSeats) break;
-                }
+            assignedFleetId = idle.id;
+            // Assign seats from the back
+            for (let i = idle.seat_capacity; i > idle.seat_capacity - requiredSeats; i--) {
+              assignedSeatNumbers.push(i);
             }
-            assignedSeatNumbers = seatsToAssign;
             break;
           }
         }

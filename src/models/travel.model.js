@@ -17,10 +17,10 @@ const calculateLoad = async (route_id, dateString) => {
   let availableFleets = [];
   try {
     availableFleets = await getAvailableFleets(
-      null, 
-      dateString, 
-      dateString, 
-      null, 
+      null,
+      dateString,
+      dateString,
+      null,
       schedule ? schedule.id : null
     );
   } catch (err) {
@@ -33,19 +33,19 @@ const calculateLoad = async (route_id, dateString) => {
     // 1. Hitung beban dari Travel Reguler
     const travelBookings = await db('travel_bookings')
       .where('schedule_id', schedule.id)
-      .where(function() {
+      .where(function () {
         this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
-            .orWhere(function() {
-              this.where('booking_status', 'menunggu_pembayaran')
-                  .andWhere('locked_until', '>', db.fn.now());
-            });
+          .orWhere(function () {
+            this.where('booking_status', 'menunggu_pembayaran')
+              .andWhere('locked_until', '>', db.fn.now());
+          });
       });
-      
+
     travelBookings.forEach(b => {
       used_seats += 1;
       occupied_seats_list.push(b.seat_number);
       if (b.baggage_weight >= 60 || b.baggage_dimension === 'super_besar') {
-        extraSeatsCount += 2; 
+        extraSeatsCount += 2;
       } else if (b.baggage_weight >= 30 || b.baggage_dimension === 'besar') {
         extraSeatsCount += 1;
       }
@@ -67,9 +67,9 @@ const calculateLoad = async (route_id, dateString) => {
   } else {
     packagesQuery = packagesQuery.where('route_id', route_id);
   }
-  
+
   const packages = await packagesQuery;
-    
+
   packages.forEach(p => {
     let seats = [];
     try {
@@ -77,7 +77,7 @@ const calculateLoad = async (route_id, dateString) => {
     } catch (e) {
       seats = [];
     }
-    
+
     if (seats.length > 0) {
       seats.forEach(seat => {
         occupied_seats_list.push(seat);
@@ -98,28 +98,28 @@ const calculateLoad = async (route_id, dateString) => {
   if (availableFleets.length > 0) {
     // Cari armada terkecil yang bisa memuat used_seats
     const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
-        if (singleFleet) {
-        unit = singleFleet.car_type;
-        max_capacity = singleFleet.seat_capacity;
-      } else {
-        // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
-        const largestFleet = availableFleets[availableFleets.length - 1];
-        const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
-        
-        if (neededUnits > availableFleets.length) {
-          // Hanya gunakan unit yang benar-benar tersedia di database
-          unit = availableFleets.length === 1 ? availableFleets[0].car_type : `${availableFleets.length} Armada Gabungan`;
-          max_capacity = availableFleets.reduce((sum, f) => sum + f.seat_capacity, 0);
-        } else {
-          unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
-          max_capacity = largestFleet.seat_capacity * neededUnits;
-        }
-      }
+    if (singleFleet) {
+      unit = singleFleet.car_type;
+      max_capacity = singleFleet.seat_capacity;
     } else {
-      // Fallback jika semua armada disewa/dipakai layanan lain
-      unit = 'Armada Penuh/Disewa';
-      max_capacity = 0;
+      // Jika kapasitas penumpang lebih besar dari armada terbesar yang ada
+      const largestFleet = availableFleets[availableFleets.length - 1];
+      const neededUnits = Math.ceil(used_seats / largestFleet.seat_capacity);
+
+      if (neededUnits > availableFleets.length) {
+        // Hanya gunakan unit yang benar-benar tersedia di database
+        unit = availableFleets.length === 1 ? availableFleets[0].car_type : `${availableFleets.length} Armada Gabungan`;
+        max_capacity = availableFleets.reduce((sum, f) => sum + f.seat_capacity, 0);
+      } else {
+        unit = `${largestFleet.car_type} (${neededUnits} Unit)`;
+        max_capacity = largestFleet.seat_capacity * neededUnits;
+      }
     }
+  } else {
+    // Fallback jika semua armada disewa/dipakai layanan lain
+    unit = 'Armada Penuh/Disewa';
+    max_capacity = 0;
+  }
 
   // Secara dinamis memblokir kursi untuk barang bawaan penumpang dari kursi paling belakang
   if (extraSeatsCount > 0 && max_capacity > 0) {
@@ -172,19 +172,19 @@ const getSchedulesAvailability = async (route_id) => {
 
     const nextDate = new Date();
     nextDate.setDate(today.getDate() + i);
-    
+
     if (allowedDays.includes(nextDate.getDay())) {
       // Pastikan format YYYY-MM-DD menggunakan tanggal lokal, bukan UTC
       const yyyy = nextDate.getFullYear();
       const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
       const dd = String(nextDate.getDate()).padStart(2, '0');
       const dateString = `${yyyy}-${mm}-${dd}`;
-        
+
       // Cek ketersediaan armada global
       const availableFleets = await getAvailableFleets(null, dateString, dateString);
-        
+
       const loadInfo = await calculateLoad(route_id, dateString);
-        
+
       // Tampilkan hanya jika masih ada kursi kosong di jadwal (kalau ada jadwal) ATAU armada tersedia
       if (loadInfo.status !== 'full' && (availableFleets.length > 0 || loadInfo.max_capacity > 0)) {
         dates.push({
@@ -226,12 +226,12 @@ const getSchedules = async ({ date, origin, destination }) => {
   const scheduleIds = schedules.map(s => s.id);
   const bookings = await db('travel_bookings')
     .whereIn('schedule_id', scheduleIds)
-    .where(function() {
+    .where(function () {
       this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
-          .orWhere(function() {
-            this.where('booking_status', 'menunggu_pembayaran')
-                .andWhere('locked_until', '>', db.fn.now());
-          });
+        .orWhere(function () {
+          this.where('booking_status', 'menunggu_pembayaran')
+            .andWhere('locked_until', '>', db.fn.now());
+        });
     })
     .select('schedule_id')
     .count('id as total')
@@ -249,14 +249,14 @@ const getSchedules = async ({ date, origin, destination }) => {
 const checkSeatAvailability = async (schedule_id, seat_number) => {
   const existingBooking = await db('travel_bookings')
     .where({ schedule_id, seat_number })
-    .where(function() {
+    .where(function () {
       this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
-          .orWhere(function() {
-            this.where('booking_status', 'menunggu_pembayaran')
-                .andWhere('locked_until', '>', db.fn.now());
-          });
+        .orWhere(function () {
+          this.where('booking_status', 'menunggu_pembayaran')
+            .andWhere('locked_until', '>', db.fn.now());
+        });
     }).first();
-    
+
   if (existingBooking) return false;
 
   // Cek apakah kursi tersebut di-lock secara dinamis untuk alokasi barang bawaan penumpang lain
@@ -267,7 +267,7 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const dateString = `${yyyy}-${mm}-${dd}`;
-    
+
     // Gunakan calculateLoad untuk mendapatkan daftar lengkap kursi yang di-lock (booking + baggage + paket)
     const loadInfo = await calculateLoad(schedule.route_id, dateString);
     if (loadInfo.occupied_seats_list.includes(parseInt(seat_number, 10))) {
@@ -282,12 +282,12 @@ const createBooking = async (data) => {
   // Modifikasi agar mendukung alokasi dinamis (membuat schedule jika belum ada)
   let schedule_id = data.schedule_id;
   let target_route_id = data.route_id;
-  
+
   if (schedule_id && !target_route_id) {
     const s = await db('schedules').where('id', schedule_id).first();
     if (s) target_route_id = s.route_id;
   }
-  
+
   let extraSeatsCount = 0;
   if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
     extraSeatsCount = 2;
@@ -302,7 +302,7 @@ const createBooking = async (data) => {
       // Cari tanggal terdekat dalam 7 hari ke depan
       let nextAvailableDate = null;
       let nextScheduleId = null;
-      
+
       for (let i = 1; i <= 7; i++) {
         const nextDate = new Date(data.departure_date);
         nextDate.setDate(nextDate.getDate() + i);
@@ -310,13 +310,13 @@ const createBooking = async (data) => {
         const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
         const dd = String(nextDate.getDate()).padStart(2, '0');
         const nextDateStr = `${yyyy}-${mm}-${dd}`;
-        
+
         // Cari schedule existing untuk tanggal tersebut jika ada
         const existingNext = await db('schedules')
           .where('route_id', target_route_id)
           .whereRaw('DATE(departure_time) = ?', [nextDateStr])
           .first();
-          
+
         const nextLoadInfo = await calculateLoad(target_route_id, nextDateStr, existingNext ? existingNext.id : null);
         if (nextLoadInfo.sisa_kursi >= extraSeatsCount + 1) {
           nextAvailableDate = nextDateStr;
@@ -324,7 +324,7 @@ const createBooking = async (data) => {
           break;
         }
       }
-      
+
       const errorMsg = `Sisa kursi di armada (Sisa ${loadInfo.sisa_kursi}) tidak cukup untuk Anda dan barang bawaan Anda (Butuh ${extraSeatsCount + 1}).`;
       if (nextAvailableDate) {
         const error = new Error(errorMsg);
@@ -339,54 +339,54 @@ const createBooking = async (data) => {
       }
     }
   }
-  
+
   if (!schedule_id && data.route_id && data.departure_date) {
     // Cek apakah schedule sudah ada di tanggal tersebut
     const existingSchedule = await db('schedules')
       .where('route_id', data.route_id)
       .whereRaw('DATE(departure_time) = ?', [data.departure_date])
       .first();
-      
+
     if (existingSchedule) {
       schedule_id = existingSchedule.id;
     } else {
       // Bikin schedule baru on-the-fly, armada dialokasikan sistem
       const departureTime = new Date(data.departure_date);
       departureTime.setHours(8, 0, 0, 0); // Default jam 8 pagi
-            // Gunakan getAvailableFleets dari fleetAvailability
-        const availableFleets = await getAvailableFleets(null, data.departure_date, data.departure_date);
-        
-        if (availableFleets.length === 0) {
-          const error = new Error('Tidak ada armada yang tersedia pada tanggal tersebut.');
-          error.code = 'NO_FLEET_AVAILABLE';
-          throw error;
-        }
+      // Gunakan getAvailableFleets dari fleetAvailability
+      const availableFleets = await getAvailableFleets(null, data.departure_date, data.departure_date);
 
-        const selectedFleet = availableFleets[0]; // Ambil armada pertama yang tersedia
-        
-        // Cek apakah armada ini sudah memiliki jadwal khusus paket (route_id null) hari ini
-        const packageOnlySchedule = await db('schedules')
-          .where('fleet_id', selectedFleet.id)
-          .whereNull('route_id')
-          .whereRaw('DATE(departure_time) = ?', [data.departure_date])
-          .first();
-
-        if (packageOnlySchedule) {
-          const [updatedSchedule] = await db('schedules')
-            .where('id', packageOnlySchedule.id)
-            .update({ route_id: data.route_id })
-            .returning('*');
-          schedule_id = updatedSchedule.id;
-        } else {
-          const [newSchedule] = await db('schedules').insert({
-            route_id: data.route_id,
-            fleet_id: selectedFleet.id,
-            departure_time: departureTime,
-            status: 'scheduled'
-          }).returning('*');
-          schedule_id = newSchedule.id;
-        }
+      if (availableFleets.length === 0) {
+        const error = new Error('Tidak ada armada yang tersedia pada tanggal tersebut.');
+        error.code = 'NO_FLEET_AVAILABLE';
+        throw error;
       }
+
+      const selectedFleet = availableFleets[0]; // Ambil armada pertama yang tersedia
+
+      // Cek apakah armada ini sudah memiliki jadwal khusus paket (route_id null) hari ini
+      const packageOnlySchedule = await db('schedules')
+        .where('fleet_id', selectedFleet.id)
+        .whereNull('route_id')
+        .whereRaw('DATE(departure_time) = ?', [data.departure_date])
+        .first();
+
+      if (packageOnlySchedule) {
+        const [updatedSchedule] = await db('schedules')
+          .where('id', packageOnlySchedule.id)
+          .update({ route_id: data.route_id })
+          .returning('*');
+        schedule_id = updatedSchedule.id;
+      } else {
+        const [newSchedule] = await db('schedules').insert({
+          route_id: data.route_id,
+          fleet_id: selectedFleet.id,
+          departure_time: departureTime,
+          status: 'scheduled'
+        }).returning('*');
+        schedule_id = newSchedule.id;
+      }
+    }
   }
 
   const schedule = await db('schedules')
@@ -413,11 +413,11 @@ const createBooking = async (data) => {
 
   let originalPrice = parseFloat(schedule.base_price);
   if (isNaN(originalPrice)) originalPrice = 250000;
-  
+
   let finalPrice = originalPrice;
   let appliedPromoId = data.promo_id || null;
   let promoObj = null;
-  
+
   try {
     let promoQuery = db('promotions').where('is_active', true);
     if (appliedPromoId) {
@@ -451,13 +451,13 @@ const createBooking = async (data) => {
     isJab = true;
     finalBookingStatus = 'menunggu_pembayaran';
     originalPrice = 250000;
-    
+
     finalPrice = 250000;
     if (isBaggageCharge) {
-        finalPrice += 250000;
-        originalPrice += 250000;
+      finalPrice += 250000;
+      originalPrice += 250000;
     }
-    
+
     if (appliedPromoId && promoObj) {
       // Re-apply discount if there was a promo
       const discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
@@ -482,7 +482,10 @@ const createBooking = async (data) => {
     original_price: originalPrice,
     promo_id: appliedPromoId
   }).returning('*');
-  
+
+  // Panggil auto-merge untuk menarik paket khusus ke dalam rute ini
+  await autoMergePackagesToRoute(schedule_id, data.departure_date);
+
   return booking;
 };
 
@@ -524,7 +527,7 @@ const getTravelHistory = async (user_id) => {
 const uploadPaymentProof = async (booking_id, user_id, file_url) => {
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['menunggu_pembayaran', 'menunggu_konfirmasi']) 
+    .whereIn('booking_status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
     .update({
       payment_proof_url: file_url,
       payment_method: 'cashless',
@@ -574,8 +577,8 @@ const cancelBooking = async (booking_id, user_id) => {
   if (['selesai', 'COMPLETED', 'APPROVED', 'dibayar'].includes(booking.booking_status)) {
     const departureTime = new Date(booking.departure_time);
     const deadline = new Date(departureTime);
-    deadline.setHours(12, 0, 0, 0); 
-    
+    deadline.setHours(12, 0, 0, 0);
+
     const now = new Date();
     if (now > deadline) {
       const error = new Error('Pembatalan pesanan hanya dapat dilakukan sebelum pukul 12 Siang pada tanggal keberangkatan');
@@ -588,26 +591,26 @@ const cancelBooking = async (booking_id, user_id) => {
     .where({ id: booking_id, user_id })
     .update({ booking_status: 'dibatalkan' })
     .returning('*');
-    
+
   if (deleted) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
     const activeBookings = await db('travel_bookings')
       .where('schedule_id', booking.schedule_id)
       .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
-      
+
     if (activeBookings.length === 0) {
       // Hanya hapus jika tidak ada paket yang menggunakan armada di hari yang sama
       const activePackages = await db('package_shipments')
         .where('fleet_id', booking.fleet_id || null)
         .whereRaw('DATE(created_at) = DATE(?)', [booking.departure_time])
         .whereNotIn('status', ['delivered', 'cancelled']);
-        
+
       if (activePackages.length === 0) {
-        await db('schedules').where('id', booking.schedule_id).del();
+        await db('schedules').where('id', booking.schedule_id).update({ status: 'dibatalkan' });
       }
     }
   }
-    
+
   return deleted;
 };
 
@@ -619,31 +622,126 @@ const deleteBooking = async (booking_id, user_id) => {
     .where('travel_bookings.user_id', user_id)
     .first();
 
-    // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
-    const updatedRows = await db('travel_bookings')
-      .where({ id: booking_id, user_id })
-      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
-      .update({ is_hidden: true });
-      
-    if (updatedRows > 0 && booking) {
-      // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
-      const activeBookings = await db('travel_bookings')
-        .where('schedule_id', booking.schedule_id)
-        .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
-        
-      if (activeBookings.length === 0) {
-        const activePackages = await db('package_shipments')
-          .where('fleet_id', booking.fleet_id || null)
-          .where('departure_date', new Date(booking.departure_time).toISOString().split('T')[0])
-          .whereNotIn('status', ['delivered', 'cancelled']);
-          
-        if (activePackages.length === 0) {
-          await db('schedules').where('id', booking.schedule_id).del();
-        }
+  // Hanya bisa dihapus jika statusnya dibatalkan atau ditolak
+  const updatedRows = await db('travel_bookings')
+    .where({ id: booking_id, user_id })
+    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED'])
+    .update({ is_hidden: true });
+
+  if (updatedRows > 0 && booking) {
+    // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
+    const activeBookings = await db('travel_bookings')
+      .where('schedule_id', booking.schedule_id)
+      .whereNotIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED']);
+
+    if (activeBookings.length === 0) {
+      const activePackages = await db('package_shipments')
+        .where('fleet_id', booking.fleet_id || null)
+        .where('departure_date', new Date(booking.departure_time).toISOString().split('T')[0])
+        .whereNotIn('status', ['delivered', 'cancelled']);
+
+      if (activePackages.length === 0) {
+        await db('schedules').where('id', booking.schedule_id).del();
       }
     }
-    return updatedRows > 0;
-  };
+  }
+  return updatedRows > 0;
+};
+
+// ==========================================================
+// FUNGSI AUTO-MERGE: Memindahkan paket khusus ke mobil travel
+// ==========================================================
+const autoMergePackagesToRoute = async (routeScheduleId, departureDate) => {
+  try {
+    const routeSchedule = await db('schedules').where('id', routeScheduleId).first();
+    if (!routeSchedule || !routeSchedule.fleet_id) return;
+
+    // 1. Ambil semua jadwal Rute (Travel Reguler) di tanggal yang sama
+    const activeRouteSchedules = await db('schedules')
+      .whereNotNull('route_id')
+      .whereRaw('DATE(departure_time) = ?', [departureDate]);
+    const activeRouteFleetIds = activeRouteSchedules.map(s => s.fleet_id);
+
+    // 2. Ambil semua paket di tanggal ini yang:
+    // - statusnya aktif (belum selesai/dibatalkan)
+    // - fleet_id-nya BUKAN mobil travel reguler mana pun (artinya ditugaskan ke mobil cadangan)
+    const packagesToMerge = await db('package_shipments')
+      .where('departure_date', departureDate)
+      .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered'])
+      .where(function() {
+         if (activeRouteFleetIds.length > 0) {
+           this.whereNotIn('fleet_id', activeRouteFleetIds).orWhereNull('fleet_id');
+         } else {
+           this.whereNotNull('id'); // ambil semua
+         }
+      });
+
+    if (packagesToMerge.length === 0) return;
+
+    // 3. Hitung total seat yang dibutuhkan
+    let totalRequiredSeats = 0;
+    packagesToMerge.forEach(p => {
+      let reqSeat = 1;
+      if (p.weight >= 60 || p.dimension === 'super_besar') reqSeat = 2;
+      totalRequiredSeats += reqSeat;
+    });
+
+    // 4. Cek sisa kursi di mobil rute travel
+    const loadInfo = await calculateLoad(routeSchedule.route_id, departureDate);
+    
+    // Jika kursi cukup, kita lakukan pemindahan
+    if (loadInfo.sisa_kursi >= totalRequiredSeats) {
+      
+      // Pilih kursi dari belakang untuk paket-paket ini
+      let availableSeats = [];
+      for (let i = loadInfo.max_capacity; i >= 1; i--) {
+        if (!loadInfo.occupied_seats_list.includes(i)) {
+          availableSeats.push(i);
+        }
+      }
+
+      let seatIndex = 0;
+      
+      // Pindahkan tiap paket
+      for (const p of packagesToMerge) {
+        let reqSeat = (p.weight >= 60 || p.dimension === 'super_besar') ? 2 : 1;
+        let assignedSeats = [];
+        for (let k = 0; k < reqSeat; k++) {
+          if (seatIndex < availableSeats.length) {
+            assignedSeats.push(availableSeats[seatIndex]);
+            seatIndex++;
+          }
+        }
+        
+        await db('package_shipments')
+          .where('id', p.id)
+          .update({
+            fleet_id: routeSchedule.fleet_id,
+            seat_numbers: JSON.stringify(assignedSeats)
+          });
+      }
+
+      // 5. Bersihkan jadwal khusus paket (route_id null) yang sekarang sudah kosong
+      const packageOnlySchedules = await db('schedules')
+        .whereNull('route_id')
+        .whereNull('driver_id')
+        .where('status', 'scheduled')
+        .whereRaw('DATE(departure_time) = ?', [departureDate]);
+        
+      for (const sched of packageOnlySchedules) {
+         const pkgs = await db('package_shipments')
+            .where('fleet_id', sched.fleet_id)
+            .where('departure_date', departureDate)
+            .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered']);
+         if (pkgs.length === 0) {
+            await db('schedules').where('id', sched.id).del();
+         }
+      }
+    }
+  } catch (err) {
+    console.error("Error auto merging packages:", err);
+  }
+};
 
 module.exports = {
   calculateLoad,
@@ -657,5 +755,6 @@ module.exports = {
   uploadPaymentProof,
   updatePaymentMethod,
   cancelBooking,
-  deleteBooking
+  deleteBooking,
+  autoMergePackagesToRoute
 };
