@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 
-exports.seed = async function(knex) {
+exports.seed = async function (knex) {
   // 1. Hapus data dengan urutan yang benar (child ke parent) untuk menghindari Foreign Key constraint errors
   await knex('cashflows').del();
   await knex('package_shipments').del();
@@ -16,7 +16,6 @@ exports.seed = async function(knex) {
   const salt = await bcrypt.genSalt(10);
   const adminPassword = await bcrypt.hash('admin123', salt);
   const driverPassword = await bcrypt.hash('driver123', salt);
-  const mechanicPassword = await bcrypt.hash('mechanic123', salt);
 
   // 3. Masukkan Data Users
   await knex('users').insert([
@@ -40,13 +39,6 @@ exports.seed = async function(knex) {
       password: driverPassword,
       phone_number: '08333333333',
       role: 'driver'
-    },
-    {
-      name: 'Imin',
-      email: 'imin@gmail.com',
-      password: mechanicPassword,
-      phone_number: '08444444444',
-      role: 'mechanic'
     }
   ]);
 
