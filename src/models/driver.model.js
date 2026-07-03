@@ -25,96 +25,136 @@ const getAssignedSchedules = async (driver_id) => {
     .whereNot('schedules.status', 'completed')
     .orderBy('schedules.departure_time', 'asc');
 
-  if (schedules.length === 0) {
-    return schedules;
-  }
+  // 2. Jika ada jadwal rute, ambil manifest dan paket
+  if (schedules.length > 0) {
+    const scheduleIds = schedules.map((s) => s.id);
 
-  // 2. Ambil SEMUA manifest sekaligus dalam 1 query (batch-fetch, bukan N+1)
-  const scheduleIds = schedules.map((s) => s.id);
-
-  const allPassengers = await db('travel_bookings')
-    .join('users', 'travel_bookings.user_id', 'users.id')
-    .select(
-      'travel_bookings.id as booking_id',
-      'travel_bookings.schedule_id',
-      'travel_bookings.seat_number',
-      'travel_bookings.price',
-      'users.name as passenger_name',
-      'users.phone_number as passenger_phone',
-      'travel_bookings.booking_status',
-      'travel_bookings.payment_method',
-      'travel_bookings.pickup_address',
-      'travel_bookings.dropoff_address'
-    )
-    .whereIn('travel_bookings.schedule_id', scheduleIds)
-    .whereNotIn('travel_bookings.booking_status', ['dibatalkan', 'ditolak'])
-    .orderBy('travel_bookings.seat_number', 'asc');
-
-  // 3. Kelompokkan penumpang ke jadwal masing-masing secara in-memory
-  const passengerMap = {};
-  for (const passenger of allPassengers) {
-    if (!passengerMap[passenger.schedule_id]) {
-      passengerMap[passenger.schedule_id] = [];
-    }
-    passengerMap[passenger.schedule_id].push({
-      booking_id: passenger.booking_id,
-      seat_number: passenger.seat_number,
-      passenger_name: passenger.passenger_name,
-      passenger_phone: passenger.passenger_phone,
-      booking_status: passenger.booking_status,
-      payment_method: passenger.payment_method,
-      price: passenger.price,
-      pickup_address: passenger.pickup_address,
-      dropoff_address: passenger.dropoff_address
-    });
-  }
-
-  // 4. Ambil semua paket untuk armada-armada ini pada tanggal tersebut
-  // Kita ambil ID armada yang terhubung dengan jadwal
-  const validFleetIds = schedules.filter(s => s.fleet_id).map(s => s.fleet_id);
-  let allPackages = [];
-  
-  if (validFleetIds.length > 0) {
-    allPackages = await db('package_shipments')
+    const allPassengers = await db('travel_bookings')
+      .join('users', 'travel_bookings.user_id', 'users.id')
       .select(
-        'id as package_id',
-        'fleet_id',
-        'waybill_number',
-        'sender_name',
-        'sender_phone',
-        'receiver_name',
-        'receiver_phone',
-        'receiver_address',
-        'package_description',
-        'weight',
-        'dimension',
-        'original_price',
-        'payment_method',
-        'transaction_status',
-        'status',
-        'created_at'
+        'travel_bookings.id as booking_id',
+        'travel_bookings.schedule_id',
+        'travel_bookings.seat_number',
+        'travel_bookings.price',
+        'users.name as passenger_name',
+        'users.phone_number as passenger_phone',
+        'travel_bookings.booking_status',
+        'travel_bookings.payment_method',
+        'travel_bookings.pickup_address',
+        'travel_bookings.dropoff_address'
       )
-      .whereIn('fleet_id', validFleetIds)
-      .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
-  }
+      .whereIn('travel_bookings.schedule_id', scheduleIds)
+      .whereNotIn('travel_bookings.booking_status', ['dibatalkan', 'ditolak'])
+      .orderBy('travel_bookings.seat_number', 'asc');
 
-  // 5. Gabungkan ke setiap jadwal
-  for (const schedule of schedules) {
-    schedule.passengers = passengerMap[schedule.id] || [];
-    
-    // Filter paket berdasarkan fleet_id dan tanggal yang sama
-    if (schedule.fleet_id && schedule.departure_time) {
-      const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
-      schedule.packages = allPackages.filter(p => {
-        const pkgDate = new Date(p.created_at).toISOString().split('T')[0];
-        return p.fleet_id === schedule.fleet_id && pkgDate <= depDate && !['delivered'].includes(p.status);
+    // 3. Kelompokkan penumpang ke jadwal masing-masing secara in-memory
+    const passengerMap = {};
+    for (const passenger of allPassengers) {
+      if (!passengerMap[passenger.schedule_id]) {
+        passengerMap[passenger.schedule_id] = [];
+      }
+      passengerMap[passenger.schedule_id].push({
+        booking_id: passenger.booking_id,
+        seat_number: passenger.seat_number,
+        passenger_name: passenger.passenger_name,
+        passenger_phone: passenger.passenger_phone,
+        booking_status: passenger.booking_status,
+        payment_method: passenger.payment_method,
+        price: passenger.price,
+        pickup_address: passenger.pickup_address,
+        dropoff_address: passenger.dropoff_address
       });
-    } else {
-      schedule.packages = [];
+    }
+
+    // 4. Ambil semua paket untuk armada-armada ini pada tanggal tersebut
+    const validFleetIds = schedules.filter(s => s.fleet_id).map(s => s.fleet_id);
+    let allPackages = [];
+
+    if (validFleetIds.length > 0) {
+      allPackages = await db('package_shipments')
+        .select(
+          'id as package_id',
+          'fleet_id',
+          'waybill_number',
+          'sender_name',
+          'sender_phone',
+          'receiver_name',
+          'receiver_phone',
+          'receiver_address',
+          'package_description',
+          'weight',
+          'dimension',
+          'original_price',
+          'payment_method',
+          'transaction_status',
+          'status',
+          'created_at'
+        )
+        .whereIn('fleet_id', validFleetIds)
+        .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
+    }
+
+    // 5. Gabungkan ke setiap jadwal
+    for (const schedule of schedules) {
+      schedule.passengers = passengerMap[schedule.id] || [];
+
+      // Filter paket berdasarkan fleet_id dan tanggal yang sama
+      if (schedule.fleet_id && schedule.departure_time) {
+        const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+        schedule.packages = allPackages.filter(p => {
+          const pkgDate = new Date(p.created_at).toISOString().split('T')[0];
+          return p.fleet_id === schedule.fleet_id && pkgDate <= depDate && !['delivered'].includes(p.status);
+        });
+      } else {
+        schedule.packages = [];
+      }
     }
   }
 
-  return schedules;
+  // 6. Ambil charter
+  const charters = await db('charter_bookings')
+    .leftJoin('fleets', 'charter_bookings.fleet_id', 'fleets.id')
+    .join('users', 'charter_bookings.user_id', 'users.id')
+    .select(
+      'charter_bookings.id',
+      'charter_bookings.fleet_id',
+      'charter_bookings.departure_date as departure_time',
+      'charter_bookings.return_date',
+      'charter_bookings.destination',
+      'charter_bookings.status',
+      'charter_bookings.offered_price',
+      'users.name as customer_name',
+      'users.phone_number as customer_phone',
+      'fleets.plate_number',
+      'fleets.car_type'
+    )
+    .where('charter_bookings.driver_id', driver_id)
+    .whereNotIn('charter_bookings.status', ['selesai', 'completed', 'selesai_final'])
+    .orderBy('charter_bookings.departure_date', 'asc');
+
+  const charterSchedules = charters.map(c => ({
+    id: c.id,
+    type: 'CHARTER',
+    departure_time: c.departure_time,
+    return_date: c.return_date,
+    destination: c.destination,
+    customer_name: c.customer_name,
+    customer_phone: c.customer_phone,
+    status: c.status,
+    price: c.offered_price,
+    plate_number: c.plate_number,
+    car_type: c.car_type,
+    passengers: [],
+    packages: [],
+    isCharter: true
+  }));
+
+  schedules.forEach(s => {
+    s.type = 'RUTE';
+    s.isCharter = false;
+  });
+
+  return [...schedules, ...charterSchedules];
 };
 
 const updateScheduleStatus = async (id, driver_id, status) => {
@@ -142,7 +182,7 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) 
     .where({ id: booking_id })
     .update({ booking_status })
     .returning('*');
-    
+
   return updated;
 };
 
@@ -163,7 +203,15 @@ const updatePackageStatus = async (package_id, driver_id, status) => {
     .where({ id: package_id })
     .update({ status })
     .returning('*');
-    
+
+  return updated;
+};
+
+const updateCharterStatus = async (id, driver_id, status) => {
+  const [updated] = await db('charter_bookings')
+    .where({ id, driver_id })
+    .update({ status })
+    .returning('*');
   return updated;
 };
 
@@ -255,7 +303,8 @@ module.exports = {
   updateScheduleStatus,
   updateTravelBookingStatus,
   updatePackageStatus,
-  
+  updateCharterStatus,
+
   // Fleet & Maintenance
   getFleets,
   updateFleetStatus,

@@ -146,6 +146,41 @@ router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), 
  */
 router.put('/schedules/packages/:id/status', authenticate, authorize('driver'), driverController.updatePackageStatus);
 
+/**
+ * @openapi
+ * /api/driver/schedules/charters/{id}/status:
+ *   put:
+ *     summary: Memperbarui Status Charter (Driver Only)
+ *     description: Driver memperbarui status charter (menunggu_penjemputan, dalam_penjemputan, on_going, selesai).
+ *     tags:
+ *       - Driver Area
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Charter ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Status charter berhasil diperbarui
+ */
+router.put('/schedules/charters/:id/status', authenticate, authorize('driver'), driverController.updateCharterStatus);
+
 
 /**
  * @openapi

@@ -704,6 +704,7 @@ crudRoute('/promotions', 'promotions', adminValidationSchemas.promotion);
 router.get('/package-shipments', masterController.getPackageShipments);
 crudRoute('/package-shipments', 'package_shipments', adminValidationSchemas.packageShipment);
 crudRoute('/institutional-expenses', 'institutional_expenses', adminValidationSchemas.institutionalExpense);
+crudRoute('/charter-bookings', 'charter_bookings');
 
 /**
  * @openapi

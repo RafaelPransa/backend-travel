@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { getAvailableFleets } = require('../helpers/fleetAvailability');
+const { autoMergePackagesToRoute } = require("../models/travel.model");
 
 const getAssignments = async (req, res) => {
   const phase = req.query.phase || 'pending'; // pending, active, completed
@@ -8,6 +9,9 @@ const getAssignments = async (req, res) => {
     const routeSchedulesQuery = db("schedules")
       .leftJoin("routes", "schedules.route_id", "routes.id")
       .leftJoin("fleets", "schedules.fleet_id", "fleets.id")
+      .where(function() {
+        this.whereNull('schedules.is_hidden').orWhere('schedules.is_hidden', false);
+      })
       .select(
         "schedules.id",
         "schedules.departure_time as departure_date",
@@ -98,9 +102,9 @@ const getAssignments = async (req, res) => {
       return {
         id: sched.id,
         type: "RUTE",
-        title: sched.origin && sched.destination 
-               ? `Travel Reguler: ${sched.origin} ➔ ${sched.destination}` 
-               : `Pengiriman Khusus Paket`,
+        title: sched.origin && sched.destination
+          ? `Travel Reguler: ${sched.origin} ➔ ${sched.destination}`
+          : `Pengiriman Khusus Paket`,
         departure_date: sched.departure_date,
         fleet_id: sched.fleet_id,
         driver_id: sched.driver_id,
@@ -118,6 +122,9 @@ const getAssignments = async (req, res) => {
     const charterQuery = db("charter_bookings")
       .leftJoin("fleets", "charter_bookings.fleet_id", "fleets.id")
       .join("users", "charter_bookings.user_id", "users.id")
+      .where(function() {
+        this.whereNull('charter_bookings.is_hidden').orWhere('charter_bookings.is_hidden', false);
+      })
       .select(
         "charter_bookings.id",
         "charter_bookings.departure_date",
@@ -140,10 +147,10 @@ const getAssignments = async (req, res) => {
         .whereRaw('DATE(charter_bookings.departure_date) > ?', [todayStr]);
     } else if (phase === 'active') {
       charterQuery.whereNotNull('charter_bookings.driver_id')
-        .whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going', 'selesai'])
+        .whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going'])
         .whereRaw('DATE(charter_bookings.departure_date) <= ?', [todayStr]);
     } else if (phase === 'completed') {
-      charterQuery.whereIn('charter_bookings.status', ['selesai_final', 'completed']);
+      charterQuery.whereIn('charter_bookings.status', ['selesai', 'selesai_final', 'completed']);
     }
 
     // Perlu select driver_id dan driver_2_id dari charters
@@ -217,6 +224,7 @@ const assignDriver = async (req, res) => {
           .update({ booking_status: "dalam_penjemputan" });
       }
 
+
     } else if (type === "CHARTER") {
       const updatePayload = {
         driver_id,
@@ -283,10 +291,12 @@ const rejectAssignment = async (req, res) => {
             .where('fleet_id', schedule.fleet_id)
             .whereRaw('DATE(created_at) <= ?', [depDate])
             .whereNotIn('status', ['dibatalkan', 'ditolak', 'delivered', 'selesai'])
-            .update({ fleet_id: null });
+            .update({ status: 'dibatalkan', fleet_id: null });
         }
       } else if (type === "CHARTER") {
         await trx('charter_bookings').where({ id }).update({ status: 'dibatalkan', driver_id: null, fleet_id: null });
+      } else if (type === "PAKET") {
+        await trx('package_shipments').where({ id }).update({ status: 'dibatalkan', fleet_id: null });
       }
     });
 
@@ -307,7 +317,7 @@ const unassignDriver = async (req, res) => {
         if (!schedule) return res.status(404).json({ status: 'error', message: 'Jadwal tidak ditemukan' });
 
         await trx('schedules').where({ id }).update({ driver_id: null, driver_2_id: null, fleet_id: null });
-        
+
         if (schedule.fleet_id && schedule.departure_time) {
           const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
           await trx('package_shipments')
@@ -360,11 +370,38 @@ const changeFleet = async (req, res) => {
   }
 };
 
+const archiveAssignment = async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    const db = require('../config/db');
+
+    let tableName = '';
+    
+    if (type === 'CHARTER') {
+      tableName = 'charter_bookings';
+    } else if (type === 'PACKAGE') {
+      tableName = 'package_shipments';
+    } else if (type === 'RUTE' || type === 'REGULAR') {
+      tableName = 'schedules'; 
+    } else {
+      return res.status(400).json({ status: 'error', message: 'Tipe penugasan tidak valid' });
+    }
+
+    await db(tableName).where({ id }).update({ is_hidden: true });
+
+    return res.status(200).json({ status: 'success', message: 'Tugas berhasil diarsipkan dari daftar' });
+  } catch (error) {
+    console.error("Error archiveAssignment:", error);
+    return res.status(500).json({ status: 'error', message: 'Gagal mengarsipkan tugas' });
+  }
+};
+
 module.exports = {
   getAssignments,
   assignDriver,
   getAvailableReplacementFleets,
   rejectAssignment,
   unassignDriver,
-  changeFleet
+  changeFleet,
+  archiveAssignment
 };
