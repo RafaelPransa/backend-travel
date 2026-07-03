@@ -14,6 +14,7 @@ const getCashflowSummary = async (req, res) => {
         total_expense: summary.totalExpense,
         today_income: summary.todayIncome,
         last_month_income: summary.lastPeriodIncome,
+        last_month_expense: summary.lastPeriodExpense,
         driver_salary: summary.driverSalary,
         net_profit: netProfit
       }
