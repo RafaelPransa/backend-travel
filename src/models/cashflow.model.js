@@ -96,11 +96,28 @@ const getExpenses = async (status) => {
 };
 
 const updateExpenseStatus = async (id, status) => {
-  const [updated] = await db('operational_expenses')
-    .where({ id })
-    .update({ status })
-    .returning('*');
-  return updated;
+  return db.transaction(async (trx) => {
+    const [updated] = await trx('operational_expenses')
+      .where({ id })
+      .update({ status })
+      .returning('*');
+
+    if (updated && status === 'approved') {
+      const driver = await trx('users').where({ id: updated.driver_id }).first();
+      const driverName = driver ? driver.name : 'Supir';
+
+      await trx('cashflows').insert({
+        amount: updated.amount,
+        type: 'expense',
+        category: updated.category,
+        description: `Pengeluaran biaya ${updated.category} oleh ${driverName}: ${updated.description || '-'}`,
+        reference_id: updated.id,
+        created_at: updated.created_at
+      });
+    }
+
+    return updated;
+  });
 };
 
 const getPaginatedTransactions = async (page = 1, limit = 10) => {
