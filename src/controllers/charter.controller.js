@@ -25,7 +25,7 @@ const checkAvailability = async (req, res) => {
     }
 
     // Ambil semua armada yang tersedia (null carType untuk ambil semua)
-    const availableFleets = await getAvailableFleets(null, start_date, end_date);
+    const availableFleets = await getAvailableFleets(null, start_date, end_date, null, null, 'CHARTER');
 
     // Group by car_type
     const availabilityByCarType = {};
@@ -59,7 +59,7 @@ const requestCharter = async (req, res) => {
     const user_id = req.user.id;
 
     // 1. Cari armada kosong
-    const availableFleets = await getAvailableFleets(car_type, departure_date, return_date);
+    const availableFleets = await getAvailableFleets(car_type, departure_date, return_date, null, null, 'CHARTER');
     if (availableFleets.length === 0) {
       return res.status(400).json({
         status: 'error',

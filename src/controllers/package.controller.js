@@ -12,7 +12,7 @@ const checkAvailability = async (req, res) => {
     }
 
     // 1. Cek armada idle (yang tidak dijadwalkan dan tidak dicharter pada tanggal ini)
-    const idleFleets = await getAvailableFleets(null, date, date);
+    const idleFleets = await getAvailableFleets(null, date, date, null, null, 'PAKET');
     let isAvailable = idleFleets.length > 0;
 
     // 2. Jika tidak ada armada idle, cek apakah armada yang dijadwalkan Rute hari ini masih ada sisa kapasitas
@@ -148,7 +148,7 @@ const createShipment = async (req, res) => {
 
       // 2. PRIORITAS KEDUA: Jika semua rute penuh / tidak ada rute, pakai mobil nganggur (Idle)
       if (!isAvailable) {
-        const idleFleets = await getAvailableFleets(null, departure_date, departure_date);
+        const idleFleets = await getAvailableFleets(null, departure_date, departure_date, null, null, 'PAKET');
         
         for (const idle of idleFleets) {
           if (idle.seat_capacity >= requiredSeats) {

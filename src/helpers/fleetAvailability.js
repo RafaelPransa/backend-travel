@@ -7,9 +7,10 @@ const db = require('../config/db');
  * @param {string} returnDate - Tanggal selesai YYYY-MM-DD
  * @param {string} excludeCharterId - (Opsional) ID charter booking yang akan diabaikan
  * @param {string} excludeScheduleId - (Opsional) ID schedule yang akan diabaikan
+ * @param {string} type - (Opsional) Jenis pencarian, 'RUTE' (default) atau 'PAKET'
  * @returns {Promise<Array>} Array of available fleets
  */
-const getAvailableFleets = async (carType, departureDate, returnDate, excludeCharterId = null, excludeScheduleId = null) => {
+const getAvailableFleets = async (carType, departureDate, returnDate, excludeCharterId = null, excludeScheduleId = null, type = 'RUTE') => {
   // 1. Ambil semua armada aktif (tidak sedang maintenance)
   let fleetsQuery = db('fleets').where('status', 'active');
   if (carType) {
@@ -25,12 +26,11 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   let charterQuery = db('charter_bookings')
     .whereIn('fleet_id', fleetIds)
     .whereIn('status', [
-      'menunggu_pembayaran', // Sedang dikunci 10 menit
+      'menunggu_pembayaran', 
       'menunggu_konfirmasi', 
       'dibayar', 
       'disetujui', 
-      'dalam_penjemputan',
-      'selesai'
+      'dalam_penjemputan'
     ])
     .whereRaw('? <= return_date AND ? >= departure_date', [departureDate, returnDate]);
     
@@ -80,7 +80,11 @@ const getAvailableFleets = async (carType, departureDate, returnDate, excludeCha
   const packageFleetIds = activePackages.map(p => p.fleet_id);
 
   // 5. Gabungkan fleet_id yang sedang sibuk
-  let busyFleetIds = [...new Set([...lockedFleetIds, ...scheduleFleetIds, ...packageFleetIds])];
+  let busyFleetIds = [...lockedFleetIds, ...scheduleFleetIds];
+  if (type === 'CHARTER') {
+    busyFleetIds = [...busyFleetIds, ...packageFleetIds];
+  }
+  busyFleetIds = [...new Set(busyFleetIds)];
 
   if (excludeScheduleId) {
     const excSched = await db('schedules').where('id', excludeScheduleId).first();

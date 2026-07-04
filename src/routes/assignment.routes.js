@@ -357,4 +357,3 @@ router.put("/:type/:id/reject", authenticate, authorize("super_admin"), assignme
 router.put("/:type/:id/unassign", authenticate, authorize("super_admin"), assignmentController.unassignDriver);
 
 module.exports = router;
-

@@ -156,6 +156,35 @@ const updatePackageStatus = async (req, res) => {
   }
 };
 
+const updateCharterStatus = async (req, res) => {
+  try {
+    const driver_id = req.user.id;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const updated = await DriverModel.updateCharterStatus(id, driver_id, status);
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Charter tidak ditemukan atau Anda tidak berwenang memperbarui status ini'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Status charter berhasil diperbarui menjadi '${status}'`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error updateCharterStatus:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui status charter'
+    });
+  }
+};
+
 // ============================================================================
 // MIGRATED FLEET & MAINTENANCE HANDLERS (FROM MECHANIC)
 // ============================================================================
@@ -350,6 +379,7 @@ module.exports = {
   updateScheduleStatus,
   updateTravelBookingStatus,
   updatePackageStatus,
+  updateCharterStatus,
   getFleets,
   updateFleetStatus,
   getMaintenanceLogs,

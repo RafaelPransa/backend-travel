@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // Daftar tabel yang diizinkan untuk operasi dinamis (Whitelist Anti SQL Injection)
-const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations', 'promotions', 'package_shipments', 'institutional_expenses'];
+const ALLOWED_TABLES = ['fleets', 'routes', 'schedules', 'users', 'banners', 'destinations', 'promotions', 'package_shipments', 'institutional_expenses', 'charter_bookings'];
 
 // Kolom sensitif yang TIDAK BOLEH dikembalikan ke client
 const SENSITIVE_COLUMNS = ['password'];
@@ -193,10 +193,26 @@ const getPackageShipments = async () => {
 };
 
 const deleteTravelBooking = async (booking_id) => {
-  const deletedRows = await db('travel_bookings')
+  // Jalankan cleanup query untuk membatalkan paket-paket kedaluwarsa
+  const now = new Date();
+  const localHour = now.getHours();
+  let thresholdDate = new Date();
+  if (localHour < 14) {
+    thresholdDate.setDate(thresholdDate.getDate() - 1);
+  }
+  const thresholdDateStr = thresholdDate.toISOString().split('T')[0];
+
+  await db('package_shipments')
+    .whereNull('fleet_id')
+    .where('departure_date', '<=', thresholdDateStr)
+    .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered'])
+    .update({ status: 'dibatalkan' });
+
+  // Hapus riwayat pesanan travel (Soft Delete agar laporan Admin tetap aman)
+  const updatedRows = await db('travel_bookings')
     .where('id', booking_id)
-    .del();
-  return deletedRows > 0;
+    .update({ is_hidden: true });
+  return updatedRows > 0;
 };
 
 module.exports = {
