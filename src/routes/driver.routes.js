@@ -3,7 +3,7 @@ const router = express.Router();
 const driverController = require('../controllers/driver.controller');
 const { validate, driverValidationSchemas, adminValidationSchemas } = require('../middlewares/validation.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
-const { uploadExpense, uploadMaintenance } = require('../middlewares/upload.middleware');
+const { uploadExpense, uploadMaintenance, uploadPayment } = require('../middlewares/upload.middleware');
 
 // ============================================================
 // RUTE KHUSUS DRIVER (Hanya role 'driver')
@@ -109,7 +109,7 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
  *       200:
  *         description: Status penumpang berhasil diperbarui
  */
-router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), driverController.updateTravelBookingStatus);
+router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), uploadPayment.single('payment_proof'), driverController.updateTravelBookingStatus);
 
 /**
  * @openapi

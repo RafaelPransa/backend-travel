@@ -168,7 +168,7 @@ const updateScheduleStatus = async (id, driver_id, status) => {
   return updated;
 };
 
-const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) => {
+const updateTravelBookingStatus = async (booking_id, driver_id, booking_status, payment_proof_url = null) => {
   // Verifikasi bahwa booking ini milik jadwal yang dipegang oleh driver
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
@@ -181,9 +181,14 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) 
     return null; // Tidak ditemukan atau bukan haknya
   }
 
+  const updateData = { booking_status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id })
-    .update({ booking_status })
+    .update(updateData)
     .returning('*');
 
   return updated;
