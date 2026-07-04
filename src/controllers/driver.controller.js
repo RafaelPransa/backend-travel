@@ -252,7 +252,10 @@ const updateFleetStatus = async (req, res) => {
 
 const getMaintenanceLogs = async (req, res) => {
   try {
-    const logs = await DriverModel.getMaintenanceLogs();
+    const is_admin = req.user.role === 'super_admin';
+    const driver_id = is_admin ? null : req.user.id;
+    
+    const logs = await DriverModel.getMaintenanceLogs(driver_id);
     return res.status(200).json({
       status: 'success',
       message: 'Berhasil mengambil daftar histori perawatan kendaraan',

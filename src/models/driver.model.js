@@ -278,8 +278,8 @@ const updateFleetStatus = async (id, status) => {
   return updated;
 };
 
-const getMaintenanceLogs = async () => {
-  return db('maintenance_logs')
+const getMaintenanceLogs = async (driver_id = null) => {
+  let query = db('maintenance_logs')
     .join('fleets', 'maintenance_logs.fleet_id', 'fleets.id')
     .leftJoin('users', 'maintenance_logs.driver_id', 'users.id')
     .select(
@@ -293,8 +293,13 @@ const getMaintenanceLogs = async () => {
       'fleets.plate_number',
       'fleets.car_type',
       'users.name as driver_name'
-    )
-    .orderBy('maintenance_logs.service_date', 'desc');
+    );
+
+  if (driver_id) {
+    query = query.where('maintenance_logs.driver_id', driver_id);
+  }
+
+  return query.orderBy('maintenance_logs.service_date', 'desc');
 };
 
 const verifyMaintenanceLog = async (id, status) => {
