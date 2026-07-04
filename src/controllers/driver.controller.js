@@ -31,7 +31,8 @@ async function checkAndCompleteSchedule(schedule_id) {
 const getMySchedules = async (req, res) => {
   try {
     const driver_id = req.user.id;
-    const schedules = await DriverModel.getAssignedSchedules(driver_id);
+    const is_history = req.query.history === 'true';
+    const schedules = await DriverModel.getAssignedSchedules(driver_id, is_history);
 
     return res.status(200).json({
       status: 'success',
