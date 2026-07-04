@@ -126,6 +126,7 @@ const getAssignedSchedules = async (driver_id) => {
       'charter_bookings.destination',
       'charter_bookings.status',
       'charter_bookings.offered_price',
+      'charter_bookings.payment_method',
       'users.name as customer_name',
       'users.phone_number as customer_phone',
       'fleets.plate_number',
@@ -147,6 +148,7 @@ const getAssignedSchedules = async (driver_id) => {
     price: c.offered_price,
     plate_number: c.plate_number,
     car_type: c.car_type,
+    payment_method: c.payment_method,
     passengers: [],
     packages: [],
     isCharter: true
@@ -215,10 +217,15 @@ const updatePackageStatus = async (package_id, driver_id, status) => {
   return updated;
 };
 
-const updateCharterStatus = async (id, driver_id, status) => {
+const updateCharterStatus = async (id, driver_id, status, payment_proof_url = null) => {
+  const updateData = { status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('charter_bookings')
     .where({ id, driver_id })
-    .update({ status })
+    .update(updateData)
     .returning('*');
   return updated;
 };

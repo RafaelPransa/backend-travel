@@ -179,7 +179,7 @@ router.put('/schedules/packages/:id/status', authenticate, authorize('driver'), 
  *       200:
  *         description: Status charter berhasil diperbarui
  */
-router.put('/schedules/charters/:id/status', authenticate, authorize('driver'), driverController.updateCharterStatus);
+router.put('/schedules/charters/:id/status', authenticate, authorize('driver'), uploadPayment.single('payment_proof'), driverController.updateCharterStatus);
 
 
 /**
