@@ -31,7 +31,8 @@ async function checkAndCompleteSchedule(schedule_id) {
 const getMySchedules = async (req, res) => {
   try {
     const driver_id = req.user.id;
-    const schedules = await DriverModel.getAssignedSchedules(driver_id);
+    const is_history = req.query.history === 'true';
+    const schedules = await DriverModel.getAssignedSchedules(driver_id, is_history);
 
     return res.status(200).json({
       status: 'success',
@@ -82,7 +83,12 @@ const updateTravelBookingStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const updated = await DriverModel.updateTravelBookingStatus(id, driver_id, status);
+    let payment_proof_url = null;
+    if (req.file) {
+      payment_proof_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+    }
+
+    const updated = await DriverModel.updateTravelBookingStatus(id, driver_id, status, payment_proof_url);
 
     if (!updated) {
       return res.status(404).json({
@@ -119,7 +125,12 @@ const updatePackageStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const updated = await DriverModel.updatePackageStatus(id, driver_id, status);
+    let payment_proof_url = null;
+    if (req.file) {
+      payment_proof_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+    }
+
+    const updated = await DriverModel.updatePackageStatus(id, driver_id, status, payment_proof_url);
 
     if (!updated) {
       return res.status(404).json({
@@ -162,7 +173,12 @@ const updateCharterStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const updated = await DriverModel.updateCharterStatus(id, driver_id, status);
+    let payment_proof_url = null;
+    if (req.file) {
+      payment_proof_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+    }
+
+    const updated = await DriverModel.updateCharterStatus(id, driver_id, status, payment_proof_url);
 
     if (!updated) {
       return res.status(404).json({
@@ -236,7 +252,10 @@ const updateFleetStatus = async (req, res) => {
 
 const getMaintenanceLogs = async (req, res) => {
   try {
-    const logs = await DriverModel.getMaintenanceLogs();
+    const is_admin = req.user.role === 'super_admin';
+    const driver_id = is_admin ? null : req.user.id;
+    
+    const logs = await DriverModel.getMaintenanceLogs(driver_id);
     return res.status(200).json({
       status: 'success',
       message: 'Berhasil mengambil daftar histori perawatan kendaraan',

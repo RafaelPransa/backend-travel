@@ -12,6 +12,7 @@ Sistem Backend berbasis RESTful API berkinerja tinggi untuk mengelola ekosistem 
 
 ## 📌 Daftar Isi
 - [👥 Aktor & Hak Akses (User Roles & ACL)](#-aktor--hak-akses-user-roles--acl)
+- [⚡ Perubahan Terbaru & Refactoring (Juni 2026)](#-perubahan-terbaru--refactoring-juni-2026)
 - [🛠️ Arsitektur & Struktur File](#️-arsitektur--struktur-file)
 - [🗄️ Skema Database & Relasi](#️-skema-database--relasi)
 - [🔌 Rincian API (Endpoints)](#-rincian-api-endpoints)
@@ -30,16 +31,42 @@ Aplikasi ini mengadopsi kontrol akses berbasis peran (RBAC) yang ketat untuk men
 
 ---
 
+## ⚡ Perubahan Terbaru & Refactoring (Juni 2026)
+
+Baru-baru ini telah dilakukan evaluasi dan peningkatan kualitas kode (*refactoring*) di seluruh aplikasi untuk meningkatkan performa, skalabilitas, dan keandalan sistem:
+
+1. **Optimasi Performa Dashboard Admin (Pencegahan N+1 Query)**:
+   * Memindahkan logika kueri dashboard yang kompleks dari `dashboard.controller.js` ke model terdedikasi `src/models/dashboard.model.js`.
+   * Menerapkan teknik **Batch-fetching** dengan peta pencarian (**Lookup Maps**) berkinerja $O(1)$ untuk menggantikan iterasi kueri satu per satu (N+1 query loop). Hal ini berhasil mereduksi beban database secara signifikan dan mempercepat response time pada endpoint `/api/admin/dashboard/active-duties` dan `/api/admin/dashboard/metrics`.
+2. **Penyederhanaan Registrasi Rute CRUD (Shared Helper)**:
+   * Memperkenalkan helper terpusat `crudRoute.js` di dalam folder `src/helpers/`.
+   * Menghilangkan duplikasi kode registrasi rute CRUD master data pada `src/routes/masterData.routes.js` dan `src/routes/cms.routes.js` agar sejalan dengan prinsip *DRY (Don't Repeat Yourself)*.
+3. **Pengujian Integrasi Otomatis (Automation Integration Tests)**:
+   * Mengintegrasikan kerangka pengujian **Jest** dan **Supertest** untuk memastikan stabilitas dan keandalan API.
+   * Menambahkan berkas pengujian komprehensif di `__tests__/api.test.js` yang memvalidasi 15 skenario pengujian utama (Auth input validation, Public endpoints, JWT Route Protection, & Zod schemas verification).
+4. **Perbaikan Bug Manifest & Model Supir**:
+   * Memperbaiki bug kritis di `src/models/driver.model.js` pada pencarian manifest penumpang supir yang sebelumnya mencocokkan status pembayaran `['paid', 'prepaid']` (yang mana tidak ada di DB), sekarang disesuaikan ke nilai status database yang valid yaitu `['selesai']`. Hal ini memperbaiki isu manifes penumpang yang selalu tampil kosong.
+5. **Penyempurnaan Pesan Kesalahan User-Friendly & Konsistensi Bahasa**:
+   * Mengubah istilah respon API dari "driver" menjadi "supir" di seluruh kontroler untuk menjaga konsistensi istilah.
+   * Menangani kesalahan SQL Foreign Key constraint (integritas referensial database) pada `masterData.controller.js` dan mengubah pesan error bawaan Postgres yang rumit menjadi pesan Bahasa Indonesia yang ramah pengguna: *"Data tidak dapat dihapus karena sedang digunakan oleh data lain."*
+6. **Perbaikan Skema Registrasi**:
+   * Menambahkan pengembalian data nomor telepon (`phone_number`) dalam klausa `.returning()` pada model pengguna `src/models/user.model.js` saat registrasi berhasil dilakukan.
+
+---
+
 ## 🛠️ Arsitektur & Struktur File
 
 Backend ini mengimplementasikan arsitektur **Modular Component-based** untuk memisahkan tanggung jawab (Separation of Concerns):
 
 ```text
 backend-kerjapraktik/
+├── __tests__/          # Automated Integration Tests (Jest & Supertest)
+│   └── api.test.js     # Berkas skenario uji endpoint API & skema validasi Zod
 ├── src/
 │   ├── config/         # Konfigurasi database Knex, integrasi mailer, & setup Swagger JSDoc
 │   ├── controllers/    # Handler HTTP request & response (Logika Kontroler)
 │   ├── db/             # Skema migrasi tabel & data dummy (Knex Migrations & Seeds)
+│   ├── helpers/        # Utilitas & helper pendukung aplikasi (e.g. crudRoute)
 │   ├── jobs/           # Pekerjaan latar belakang (Cron Jobs: Auto-cancel Seat Lock)
 │   ├── middlewares/    # Middleware autentikasi JWT, otorisasi role, validasi Zod, & pengunggahan file (Multer)
 │   ├── models/         # Interaksi query database relasional menggunakan Knex Builder
@@ -160,7 +187,7 @@ Semua rute di bawah `/api/admin/master` membutuhkan token autentikasi **Super Ad
 | Method | Endpoint | Hak Akses | Deskripsi |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/admin/dashboard/metrics` | Admin | Memantau omzet harian, jumlah transaksi, kontribusi armada |
-| `GET` | `/api/admin/dashboard/active-duties` | Admin | Mendapatkan daftar tugas armada & supir aktif hari ini secara terpaginasi |
+| `GET` | `/api/admin/dashboard/active-duties` | Admin | Mendapatkan daftar tugas armada & supir aktif hari ini secara teroptimasi |
 | `GET` | `/api/admin/cashflow/summary` | Admin | Rangkuman laba-rugi bersih (*Net Profit*) harian s/d tahunan |
 | `GET` | `/api/admin/cashflow/transactions` | Admin | Buku besar mutasi kas masuk/keluar terpaginasi |
 | `POST` | `/api/admin/cashflow/expense` | Admin | Mencatat biaya operasional instansi secara manual |
@@ -182,6 +209,11 @@ Semua rute di bawah `/api/admin/master` membutuhkan token autentikasi **Super Ad
 * **Media Handler**: `multer` - Manajemen pengunggahan file fisik (gambar kuitansi & bukti transfer).
 * **Background Worker**: `node-cron` - Eksekusi tugas berkala (penghapusan otomatis kunci kursi travel).
 * **Documentation**: `swagger-jsdoc` & `swagger-ui-express` - Dokumentasi API dinamis berbasis JSDoc.
+
+### Dependensi Pengembangan & Pengujian (DevDependencies):
+* **Testing Tool**: `jest` - Test runner untuk pengujian otomatis.
+* **HTTP Assertion**: `supertest` - Library untuk melakukan simulasi request HTTP ke endpoint Express.
+* **Process Manager**: `nodemon` - Hot-reloading server selama pengembangan.
 
 ---
 
@@ -246,7 +278,20 @@ npm run dev
 ```
 Server akan berjalan secara lokal di: `http://localhost:5000`
 
-### 6. Tes API secara Interaktif (Swagger UI)
+### 6. Menjalankan Uji Otomatis (Automation Testing)
+Aplikasi ini dilengkapi dengan rangkaian unit & integration test untuk menjamin setiap endpoint berfungsi sebagaimana mestinya tanpa menimbulkan regresi kode (*regression break*).
+
+Jalankan perintah berikut untuk mengeksekusi suite uji coba:
+```bash
+npm test
+```
+
+Uji otomatis ini menyimulasikan skenario berikut secara headless:
+* Validasi input format email dan sandi minimal 6 karakter pada autentikasi.
+* Verifikasi format respon data pada rute publik (`/`, schedules, banners, destinations, promotions).
+* Proteksi otorisasi yang menolak panggilan API tanpa menyertakan JWT token pada endpoint krusial (bookings, history, dashboard, driver area).
+
+### 7. Tes API secara Interaktif (Swagger UI)
 Akses endpoint berikut pada browser Anda untuk menjelajahi dokumentasi API yang lengkap dan mengujinya secara langsung:
 👉 **[http://localhost:5000/api-docs](http://localhost:5000/api-docs)**
 

@@ -4,9 +4,9 @@ const db = require('../config/db');
  * Mengambil jadwal yang di-assign ke driver beserta manifest penumpang.
  * Menggunakan teknik batch-fetch untuk menghindari masalah N+1 Query.
  */
-const getAssignedSchedules = async (driver_id) => {
+const getAssignedSchedules = async (driver_id, is_history = false) => {
   // 1. Ambil semua jadwal milik driver ini
-  const schedules = await db('schedules')
+  let query = db('schedules')
     .join('routes', 'schedules.route_id', 'routes.id')
     .leftJoin('fleets', 'schedules.fleet_id', 'fleets.id')
     .select(
@@ -21,9 +21,15 @@ const getAssignedSchedules = async (driver_id) => {
       'fleets.car_type',
       'fleets.seat_capacity'
     )
-    .where('schedules.driver_id', driver_id)
-    .whereNot('schedules.status', 'completed')
-    .orderBy('schedules.departure_time', 'asc');
+    .where('schedules.driver_id', driver_id);
+
+  if (is_history) {
+    query = query.where('schedules.status', 'completed');
+  } else {
+    query = query.whereNot('schedules.status', 'completed');
+  }
+
+  const schedules = await query.orderBy('schedules.departure_time', is_history ? 'desc' : 'asc');
 
   // 2. Jika ada jadwal rute, ambil manifest dan paket
   if (schedules.length > 0) {
@@ -40,6 +46,7 @@ const getAssignedSchedules = async (driver_id) => {
         'users.phone_number as passenger_phone',
         'travel_bookings.booking_status',
         'travel_bookings.payment_method',
+        'travel_bookings.payment_proof_url',
         'travel_bookings.pickup_address',
         'travel_bookings.dropoff_address'
       )
@@ -60,6 +67,7 @@ const getAssignedSchedules = async (driver_id) => {
         passenger_phone: passenger.passenger_phone,
         booking_status: passenger.booking_status,
         payment_method: passenger.payment_method,
+        payment_proof_url: passenger.payment_proof_url,
         price: passenger.price,
         pickup_address: passenger.pickup_address,
         dropoff_address: passenger.dropoff_address
@@ -88,7 +96,9 @@ const getAssignedSchedules = async (driver_id) => {
           'payment_method',
           'transaction_status',
           'status',
-          'created_at'
+          'created_at',
+          'departure_date',
+          'payment_proof_url'
         )
         .whereIn('fleet_id', validFleetIds)
         .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
@@ -102,8 +112,13 @@ const getAssignedSchedules = async (driver_id) => {
       if (schedule.fleet_id && schedule.departure_time) {
         const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
         schedule.packages = allPackages.filter(p => {
-          const pkgDate = new Date(p.created_at).toISOString().split('T')[0];
-          return p.fleet_id === schedule.fleet_id && pkgDate <= depDate && !['delivered'].includes(p.status);
+          const pkgDate = p.departure_date 
+            ? new Date(p.departure_date).toISOString().split('T')[0] 
+            : new Date(p.created_at).toISOString().split('T')[0];
+          
+          const isDelivered = ['delivered'].includes(p.status);
+          const showPackage = is_history ? isDelivered : !isDelivered;
+          return p.fleet_id === schedule.fleet_id && pkgDate === depDate && showPackage;
         });
       } else {
         schedule.packages = [];
@@ -112,7 +127,7 @@ const getAssignedSchedules = async (driver_id) => {
   }
 
   // 6. Ambil charter
-  const charters = await db('charter_bookings')
+  let charterQuery = db('charter_bookings')
     .leftJoin('fleets', 'charter_bookings.fleet_id', 'fleets.id')
     .join('users', 'charter_bookings.user_id', 'users.id')
     .select(
@@ -123,14 +138,22 @@ const getAssignedSchedules = async (driver_id) => {
       'charter_bookings.destination',
       'charter_bookings.status',
       'charter_bookings.offered_price',
+      'charter_bookings.payment_method',
+      'charter_bookings.payment_proof_url',
       'users.name as customer_name',
       'users.phone_number as customer_phone',
       'fleets.plate_number',
       'fleets.car_type'
     )
-    .where('charter_bookings.driver_id', driver_id)
-    .whereNotIn('charter_bookings.status', ['selesai', 'completed', 'selesai_final'])
-    .orderBy('charter_bookings.departure_date', 'asc');
+    .where('charter_bookings.driver_id', driver_id);
+
+  if (is_history) {
+    charterQuery = charterQuery.whereIn('charter_bookings.status', ['selesai', 'completed', 'selesai_final']);
+  } else {
+    charterQuery = charterQuery.whereNotIn('charter_bookings.status', ['selesai', 'completed', 'selesai_final']);
+  }
+
+  const charters = await charterQuery.orderBy('charter_bookings.departure_date', is_history ? 'desc' : 'asc');
 
   const charterSchedules = charters.map(c => ({
     id: c.id,
@@ -144,6 +167,8 @@ const getAssignedSchedules = async (driver_id) => {
     price: c.offered_price,
     plate_number: c.plate_number,
     car_type: c.car_type,
+    payment_method: c.payment_method,
+    payment_proof_url: c.payment_proof_url,
     passengers: [],
     packages: [],
     isCharter: true
@@ -154,7 +179,14 @@ const getAssignedSchedules = async (driver_id) => {
     s.isCharter = false;
   });
 
-  return [...schedules, ...charterSchedules];
+  const allTasks = [...schedules, ...charterSchedules];
+  allTasks.sort((a, b) => {
+    const timeA = new Date(a.departure_time).getTime();
+    const timeB = new Date(b.departure_time).getTime();
+    return is_history ? timeB - timeA : timeA - timeB;
+  });
+
+  return allTasks;
 };
 
 const updateScheduleStatus = async (id, driver_id, status) => {
@@ -165,7 +197,7 @@ const updateScheduleStatus = async (id, driver_id, status) => {
   return updated;
 };
 
-const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) => {
+const updateTravelBookingStatus = async (booking_id, driver_id, booking_status, payment_proof_url = null) => {
   // Verifikasi bahwa booking ini milik jadwal yang dipegang oleh driver
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
@@ -178,16 +210,21 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status) 
     return null; // Tidak ditemukan atau bukan haknya
   }
 
+  const updateData = { booking_status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id })
-    .update({ booking_status })
+    .update(updateData)
     .returning('*');
 
   return updated;
 };
 
-const updatePackageStatus = async (package_id, driver_id, status) => {
-  // Verifikasi package ini ditugaskan ke fleet yang dibawa driver ini pada jadwal aktif
+const updatePackageStatus = async (package_id, driver_id, status, payment_proof_url = null) => {
+  // Cek apakah paket di-assign ke driver lewat schedule
   const pkg = await db('package_shipments')
     .join('schedules', 'package_shipments.fleet_id', 'schedules.fleet_id')
     .where('package_shipments.id', package_id)
@@ -199,18 +236,28 @@ const updatePackageStatus = async (package_id, driver_id, status) => {
     return null;
   }
 
+  const updateData = { status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('package_shipments')
     .where({ id: package_id })
-    .update({ status })
+    .update(updateData)
     .returning('*');
 
   return updated;
 };
 
-const updateCharterStatus = async (id, driver_id, status) => {
+const updateCharterStatus = async (id, driver_id, status, payment_proof_url = null) => {
+  const updateData = { status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('charter_bookings')
     .where({ id, driver_id })
-    .update({ status })
+    .update(updateData)
     .returning('*');
   return updated;
 };
@@ -231,8 +278,8 @@ const updateFleetStatus = async (id, status) => {
   return updated;
 };
 
-const getMaintenanceLogs = async () => {
-  return db('maintenance_logs')
+const getMaintenanceLogs = async (driver_id = null) => {
+  let query = db('maintenance_logs')
     .join('fleets', 'maintenance_logs.fleet_id', 'fleets.id')
     .leftJoin('users', 'maintenance_logs.driver_id', 'users.id')
     .select(
@@ -246,8 +293,13 @@ const getMaintenanceLogs = async () => {
       'fleets.plate_number',
       'fleets.car_type',
       'users.name as driver_name'
-    )
-    .orderBy('maintenance_logs.service_date', 'desc');
+    );
+
+  if (driver_id) {
+    query = query.where('maintenance_logs.driver_id', driver_id);
+  }
+
+  return query.orderBy('maintenance_logs.service_date', 'desc');
 };
 
 const verifyMaintenanceLog = async (id, status) => {
