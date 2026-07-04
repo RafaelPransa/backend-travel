@@ -196,8 +196,8 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status, 
   return updated;
 };
 
-const updatePackageStatus = async (package_id, driver_id, status) => {
-  // Verifikasi package ini ditugaskan ke fleet yang dibawa driver ini pada jadwal aktif
+const updatePackageStatus = async (package_id, driver_id, status, payment_proof_url = null) => {
+  // Cek apakah paket di-assign ke driver lewat schedule
   const pkg = await db('package_shipments')
     .join('schedules', 'package_shipments.fleet_id', 'schedules.fleet_id')
     .where('package_shipments.id', package_id)
@@ -209,9 +209,14 @@ const updatePackageStatus = async (package_id, driver_id, status) => {
     return null;
   }
 
+  const updateData = { status };
+  if (payment_proof_url) {
+    updateData.payment_proof_url = payment_proof_url;
+  }
+
   const [updated] = await db('package_shipments')
     .where({ id: package_id })
-    .update({ status })
+    .update(updateData)
     .returning('*');
 
   return updated;

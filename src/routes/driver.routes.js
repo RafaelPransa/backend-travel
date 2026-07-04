@@ -144,7 +144,7 @@ router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), 
  *       200:
  *         description: Status paket berhasil diperbarui
  */
-router.put('/schedules/packages/:id/status', authenticate, authorize('driver'), driverController.updatePackageStatus);
+router.put('/schedules/packages/:id/status', authenticate, authorize('driver'), uploadPayment.single('payment_proof'), driverController.updatePackageStatus);
 
 /**
  * @openapi

@@ -124,7 +124,12 @@ const updatePackageStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const updated = await DriverModel.updatePackageStatus(id, driver_id, status);
+    let payment_proof_url = null;
+    if (req.file) {
+      payment_proof_url = `${req.protocol}://${req.get('host')}/uploads/payments/${req.file.filename}`;
+    }
+
+    const updated = await DriverModel.updatePackageStatus(id, driver_id, status, payment_proof_url);
 
     if (!updated) {
       return res.status(404).json({
