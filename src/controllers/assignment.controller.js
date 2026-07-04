@@ -9,7 +9,7 @@ const getAssignments = async (req, res) => {
     const routeSchedulesQuery = db("schedules")
       .leftJoin("routes", "schedules.route_id", "routes.id")
       .leftJoin("fleets", "schedules.fleet_id", "fleets.id")
-      .where(function() {
+      .where(function () {
         this.whereNull('schedules.is_hidden').orWhere('schedules.is_hidden', false);
       })
       .select(
@@ -33,12 +33,15 @@ const getAssignments = async (req, res) => {
         .whereRaw('DATE(schedules.departure_time) >= ?', [todayStr]);
     } else if (phase === 'assigned') {
       routeSchedulesQuery.whereNotNull('schedules.driver_id')
-        .whereIn('schedules.status', ['scheduled', 'on_going', 'departed'])
+        .where('schedules.status', 'scheduled')
         .whereRaw('DATE(schedules.departure_time) > ?', [todayStr]);
     } else if (phase === 'active') {
       routeSchedulesQuery.whereNotNull('schedules.driver_id')
-        .whereIn('schedules.status', ['scheduled', 'on_going', 'departed'])
-        .whereRaw('DATE(schedules.departure_time) <= ?', [todayStr]);
+        .where(function () {
+          this.whereIn('schedules.status', ['on_going', 'departed'])
+            .orWhereRaw('DATE(schedules.departure_time) <= ?', [todayStr]);
+        })
+        .whereNotIn('schedules.status', ['completed']);
     } else if (phase === 'completed') {
       routeSchedulesQuery.where('schedules.status', 'completed');
     }
@@ -122,7 +125,7 @@ const getAssignments = async (req, res) => {
     const charterQuery = db("charter_bookings")
       .leftJoin("fleets", "charter_bookings.fleet_id", "fleets.id")
       .join("users", "charter_bookings.user_id", "users.id")
-      .where(function() {
+      .where(function () {
         this.whereNull('charter_bookings.is_hidden').orWhere('charter_bookings.is_hidden', false);
       })
       .select(
@@ -143,12 +146,15 @@ const getAssignments = async (req, res) => {
         .whereIn('charter_bookings.status', ['dibayar', 'menunggu_penjemputan', 'dalam_penjemputan', 'disetujui', 'selesai']);
     } else if (phase === 'assigned') {
       charterQuery.whereNotNull('charter_bookings.driver_id')
-        .whereIn('charter_bookings.status', ['dibayar', 'disetujui', 'menunggu_penjemputan', 'dalam_penjemputan', 'on_going', 'selesai'])
+        .whereIn('charter_bookings.status', ['dibayar', 'disetujui', 'menunggu_penjemputan'])
         .whereRaw('DATE(charter_bookings.departure_date) > ?', [todayStr]);
     } else if (phase === 'active') {
       charterQuery.whereNotNull('charter_bookings.driver_id')
-        .whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going'])
-        .whereRaw('DATE(charter_bookings.departure_date) <= ?', [todayStr]);
+        .where(function () {
+          this.whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going'])
+            .orWhereRaw('DATE(charter_bookings.departure_date) <= ?', [todayStr]);
+        })
+        .whereNotIn('charter_bookings.status', ['selesai', 'selesai_final', 'completed', 'dibatalkan', 'ditolak']);
     } else if (phase === 'completed') {
       charterQuery.whereIn('charter_bookings.status', ['selesai', 'selesai_final', 'completed']);
     }
@@ -376,13 +382,13 @@ const archiveAssignment = async (req, res) => {
     const db = require('../config/db');
 
     let tableName = '';
-    
+
     if (type === 'CHARTER') {
       tableName = 'charter_bookings';
     } else if (type === 'PACKAGE') {
       tableName = 'package_shipments';
     } else if (type === 'RUTE' || type === 'REGULAR') {
-      tableName = 'schedules'; 
+      tableName = 'schedules';
     } else {
       return res.status(400).json({ status: 'error', message: 'Tipe penugasan tidak valid' });
     }
