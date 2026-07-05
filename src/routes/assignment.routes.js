@@ -353,10 +353,104 @@ router.put("/:type/:id/change-fleet", authenticate, authorize("super_admin"), as
  */
 router.put("/:type/:id/reject", authenticate, authorize("super_admin"), assignmentController.rejectAssignment);
 
-// PUT /api/admin/assignments/:type/:id/unassign
+/**
+ * @openapi
+ * /api/admin/assignments/{type}/{id}/unassign:
+ *   put:
+ *     summary: Menghapus Penugasan Supir & Armada (Super Admin Only)
+ *     description: Menghapus supir utama, supir cadangan, dan armada dari jadwal (RUTE) atau sewa (CHARTER), mengembalikan status penugasan menjadi kosong (belum ditugaskan).
+ *     tags:
+ *       - Admin Assignments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RUTE, CHARTER]
+ *         description: Tipe penugasan (RUTE atau CHARTER)
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Schedule atau ID Charter Booking
+ *     responses:
+ *       200:
+ *         description: Supir berhasil dihapus dari penugasan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Supir berhasil dibatalkan dari penugasan
+ *       401:
+ *         description: Token JWT tidak valid atau kosong
+ *       403:
+ *         description: Akses ditolak (Hanya Super Admin)
+ *       404:
+ *         description: Jadwal atau pesanan tidak ditemukan
+ *       500:
+ *         description: Gagal menghapus supir
+ */
 router.put("/:type/:id/unassign", authenticate, authorize("super_admin"), assignmentController.unassignDriver);
 
-// DELETE /api/admin/assignments/:type/:id (Archive)
+/**
+ * @openapi
+ * /api/admin/assignments/{type}/{id}:
+ *   delete:
+ *     summary: Mengarsipkan Tugas Penugasan (Super Admin Only)
+ *     description: Menyembunyikan tugas perjalanan reguler (RUTE) atau sewa pariwisata (CHARTER) dari daftar admin dengan menyetel `is_hidden = true`.
+ *     tags:
+ *       - Admin Assignments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RUTE, CHARTER]
+ *         description: Tipe penugasan (RUTE atau CHARTER)
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Schedule atau ID Charter Booking
+ *     responses:
+ *       200:
+ *         description: Tugas berhasil diarsipkan dari daftar
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Tugas berhasil diarsipkan dari daftar
+ *       400:
+ *         description: Tipe penugasan tidak valid
+ *       401:
+ *         description: Token JWT tidak valid atau kosong
+ *       403:
+ *         description: Akses ditolak (Hanya Super Admin)
+ *       500:
+ *         description: Gagal mengarsipkan tugas
+ */
 router.delete("/:type/:id", authenticate, authorize("super_admin"), assignmentController.archiveAssignment);
 
 module.exports = router;
