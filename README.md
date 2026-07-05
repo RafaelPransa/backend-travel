@@ -27,48 +27,6 @@ Aplikasi ini mengadopsi kontrol akses berbasis peran (RBAC) yang ketat untuk men
 * **Customer**: Mendaftar dan login mandiri. Dapat mencari jadwal perjalanan aktif, memesan kursi travel (dengan sistem kunci kursi 10 menit), mengajukan sewa charter pariwisata, melakukan pengiriman paket, mengunggah bukti pembayaran, serta memantau riwayat transaksi personal.
 * **Driver (Supir)**: Login menggunakan akun khusus yang didaftarkan oleh Super Admin. Driver berhak memantau tugas perjalanan yang diberikan, melihat manifest penumpang per keberangkatan, memperbarui status perjalanan secara real-time, mencatat log perawatan armada (servis rutin/masuk bengkel), dan mengajukan biaya operasional perjalanan (tol, bensin, parkir).
 * **Super Admin**: Pengendali penuh sistem. Mengelola seluruh master data, memvalidasi dan memverifikasi bukti transaksi, memverifikasi log perawatan dan klaim biaya operasional driver, serta memantau dashboard analitik keuangan (*ledger cashflow*, *Gross*, dan *Net Profit*). *Catatan keamanan: Super Admin hanya dapat mengubah (update) dan menghapus (delete) akun dengan role Customer atau Driver. Akun sesama Super Admin tidak dapat diubah atau dihapus untuk menjaga integritas sistem.*
-
----
-
-## ⚡ Perubahan Terbaru & Refactoring (Juni & Juli 2026)
-
-Baru-baru ini telah dilakukan evaluasi, perbaikan bug alur bisnis, dan peningkatan kualitas kode (*refactoring*) di seluruh aplikasi untuk meningkatkan performa, skalabilitas, dan keandalan sistem:
-
-### 📅 Juli 2026 (Penyelesaian Alur Perjalanan Paket Khusus & Keuangan Supir)
-1. **Integrasi Rute Null untuk Pengiriman Paket Khusus**:
-   * Mengubah relasi query di model `DriverModel.getAssignedSchedules` menggunakan `leftJoin` pada tabel `routes` agar perjalanan khusus pengiriman paket (berstatus `route_id = null`) dapat tampil dengan benar di layar tugas aktif supir.
-   * Menarik informasi rute asal/tujuan dari paket itu sendiri dan mengisikannya secara dinamis ke objek jadwal jika rute bernilai kosong.
-2. **Penyelesaian Masalah Timezone Offset**:
-   * Menambahkan helper format tanggal berbasis lokal (`Asia/Jakarta`) di model supir dan controller penugasan untuk menyamakan perbandingan tanggal keberangkatan paket dengan jadwal perjalanan, menghindari bug pergeseran tanggal ke hari sebelumnya akibat standardisasi UTC.
-3. **Penyajian Data Alamat yang Lebih Bersih**:
-   * Membuat helper pemformatan alamat penerima paket dari objek JSON database menjadi string alamat yang bersih dan terstruktur untuk di-render di antarmuka riwayat tugas supir (dilengkapi tooltip hover).
-4. **Penyelesaian Masalah Tab Selesai Penugasan Admin**:
-   * Menyesuaikan endpoint `getAssignments` admin agar ketika fase tugas diset ke `'completed'`, backend tetap menghitung paket berstatus `'delivered'` atau `'selesai'` agar penugasan selesai tidak hilang secara gaib.
-5. **Pagination Tab Selesai Admin**:
-   * Mengimplementasikan sistem pagination berbasis Server-Side Rendering (SSR) dengan batas maksimal **8 item** per halaman pada daftar penugasan selesai di panel admin.
-6. **Pembersihan Berkas Sampah (Root Folder Cleanup)**:
-   * Menghapus 25 skrip diagnostik sementara di folder root untuk menjaga kebersihan repositori dan meminimalisir kekacauan berkas.
-7. **Pembaruan Dokumentasi Swagger API**:
-   * Melengkapi spesifikasi OpenAPI untuk endpoint `unassign` dan `archive` yang sebelumnya belum terdokumentasikan, serta memperbarui enum `assigned` pada parameter query `phase`.
-
-### 📅 Juni 2026 (Optimasi & Refactoring Sistem)
-1. **Optimasi Performa Dashboard Admin (Pencegahan N+1 Query)**:
-   * Memindahkan logika kueri dashboard yang kompleks dari `dashboard.controller.js` ke model terdedikasi `src/models/dashboard.model.js`.
-   * Menerapkan teknik **Batch-fetching** dengan peta pencarian (**Lookup Maps**) berkinerja $O(1)$ untuk menggantikan iterasi kueri satu per satu (N+1 query loop). Hal ini berhasil mereduksi beban database secara signifikan dan mempercepat response time pada endpoint `/api/admin/dashboard/active-duties` dan `/api/admin/dashboard/metrics`.
-2. **Penyederhanaan Registrasi Rute CRUD (Shared Helper)**:
-   * Memperkenalkan helper terpusat `crudRoute.js` di dalam folder `src/helpers/`.
-   * Menghilangkan duplikasi kode registrasi rute CRUD master data pada `src/routes/masterData.routes.js` dan `src/routes/cms.routes.js` agar sejalan dengan prinsip *DRY (Don't Repeat Yourself)*.
-3. **Pengujian Integrasi Otomatis (Automation Integration Tests)**:
-   * Mengintegrasikan kerangka pengujian **Jest** dan **Supertest** untuk memastikan stabilitas dan keandalan API.
-   * Menambahkan berkas pengujian komprehensif di `__tests__/api.test.js` yang memvalidasi 15 skenario pengujian utama (Auth input validation, Public endpoints, JWT Route Protection, & Zod schemas verification).
-4. **Perbaikan Bug Manifest & Model Supir**:
-   * Memperbaiki bug kritis di `src/models/driver.model.js` pada pencarian manifest penumpang supir yang sebelumnya mencocokkan status pembayaran `['paid', 'prepaid']` (yang mana tidak ada di DB), sekarang disesuaikan ke nilai status database yang valid yaitu `['selesai']`. Hal ini memperbaiki isu manifes penumpang yang selalu tampil kosong.
-5. **Penyempurnaan Pesan Kesalahan User-Friendly & Konsistensi Bahasa**:
-   * Mengubah istilah respon API dari "driver" menjadi "supir" di seluruh kontroler untuk menjaga konsistensi istilah.
-   * Menangani kesalahan SQL Foreign Key constraint (integritas referensial database) pada `masterData.controller.js` dan mengubah pesan error bawaan Postgres yang rumit menjadi pesan Bahasa Indonesia yang ramah pengguna: *"Data tidak dapat dihapus karena sedang digunakan oleh data lain."*
-6. **Perbaikan Skema Registrasi**:
-   * Menambahkan pengembalian data nomor telepon (`phone_number`) dalam klausa `.returning()` pada model pengguna `src/models/user.model.js` saat registrasi berhasil dilakukan.
-
 ---
 
 ## 🛠️ Arsitektur & Struktur File
