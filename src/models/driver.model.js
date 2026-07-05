@@ -110,11 +110,11 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
 
       // Filter paket berdasarkan fleet_id dan tanggal yang sama
       if (schedule.fleet_id && schedule.departure_time) {
-        const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+        const formatLocal = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+        const depDate = formatLocal(schedule.departure_time);
+        
         schedule.packages = allPackages.filter(p => {
-          const pkgDate = p.departure_date
-            ? new Date(p.departure_date).toISOString().split('T')[0]
-            : new Date(p.created_at).toISOString().split('T')[0];
+          const pkgDate = formatLocal(p.departure_date || p.created_at);
 
           const isDelivered = ['delivered'].includes(p.status);
           const showPackage = is_history ? isDelivered : !isDelivered;

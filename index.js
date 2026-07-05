@@ -7,3 +7,5 @@ app.listen(PORT, 'localhost', () => {
   console.log(`Server is running strictly on http://localhost:${PORT}`);
 });
 // Trigger nodemon restart to load new .env variables
+
+// Trigger restart for CORS fix
