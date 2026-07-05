@@ -7,11 +7,12 @@ const db = require('../config/db');
 const getAssignedSchedules = async (driver_id, is_history = false) => {
   // 1. Ambil semua jadwal milik driver ini
   let query = db('schedules')
-    .join('routes', 'schedules.route_id', 'routes.id')
+    .leftJoin('routes', 'schedules.route_id', 'routes.id')
     .leftJoin('fleets', 'schedules.fleet_id', 'fleets.id')
     .select(
       'schedules.id',
       'schedules.fleet_id',
+      'schedules.route_id',
       'schedules.departure_time',
       'schedules.status',
       'routes.origin',
@@ -80,28 +81,31 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
 
     if (validFleetIds.length > 0) {
       allPackages = await db('package_shipments')
+        .leftJoin('routes', 'package_shipments.route_id', 'routes.id')
         .select(
-          'id as package_id',
-          'fleet_id',
-          'waybill_number',
-          'sender_name',
-          'sender_phone',
-          'receiver_name',
-          'receiver_phone',
-          'receiver_address',
-          'package_description',
-          'weight',
-          'dimension',
-          'original_price',
-          'payment_method',
-          'transaction_status',
-          'status',
-          'created_at',
-          'departure_date',
-          'payment_proof_url'
+          'package_shipments.id as package_id',
+          'package_shipments.fleet_id',
+          'package_shipments.waybill_number',
+          'package_shipments.sender_name',
+          'package_shipments.sender_phone',
+          'package_shipments.receiver_name',
+          'package_shipments.receiver_phone',
+          'package_shipments.receiver_address',
+          'package_shipments.package_description',
+          'package_shipments.weight',
+          'package_shipments.dimension',
+          'package_shipments.original_price',
+          'package_shipments.payment_method',
+          'package_shipments.transaction_status',
+          'package_shipments.status',
+          'package_shipments.created_at',
+          'package_shipments.departure_date',
+          'package_shipments.payment_proof_url',
+          'routes.origin as route_origin',
+          'routes.destination as route_destination'
         )
-        .whereIn('fleet_id', validFleetIds)
-        .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED']);
+        .whereIn('package_shipments.fleet_id', validFleetIds)
+        .whereNotIn('package_shipments.status', ['dibatalkan', 'ditolak', 'REJECTED']);
     }
 
     // 5. Gabungkan ke setiap jadwal
@@ -110,16 +114,39 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
 
       // Filter paket berdasarkan fleet_id dan tanggal yang sama
       if (schedule.fleet_id && schedule.departure_time) {
-        const formatLocal = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-        const depDate = formatLocal(schedule.departure_time);
-        
+        const formatDateLocal = (dateInput) => {
+          if (!dateInput) return null;
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Jakarta',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          return formatter.format(new Date(dateInput));
+        };
+
+        const depDate = formatDateLocal(schedule.departure_time);
         schedule.packages = allPackages.filter(p => {
-          const pkgDate = formatLocal(p.departure_date || p.created_at);
+          const pkgDate = p.departure_date
+            ? formatDateLocal(p.departure_date)
+            : formatDateLocal(p.created_at);
 
           const isDelivered = ['delivered'].includes(p.status);
           const showPackage = is_history ? isDelivered : !isDelivered;
           return p.fleet_id === schedule.fleet_id && pkgDate === depDate && showPackage;
         });
+
+        // Resolve origin/destination jika ini schedule khusus paket
+        if (!schedule.route_id || !schedule.origin || !schedule.destination) {
+          const firstWithRoute = schedule.packages.find(p => p.route_origin && p.route_destination);
+          if (firstWithRoute) {
+            schedule.origin = firstWithRoute.route_origin;
+            schedule.destination = firstWithRoute.route_destination;
+          } else {
+            schedule.origin = 'Pool Asal';
+            schedule.destination = 'Pool Tujuan';
+          }
+        }
       } else {
         schedule.packages = [];
       }
@@ -339,7 +366,7 @@ const createOperationalExpense = async (data) => {
 const getDriverExpenses = async (driver_id) => {
   return db('operational_expenses')
     .join('schedules', 'operational_expenses.schedule_id', 'schedules.id')
-    .join('routes', 'schedules.route_id', 'routes.id')
+    .leftJoin('routes', 'schedules.route_id', 'routes.id')
     .select(
       'operational_expenses.*',
       'schedules.departure_time',
