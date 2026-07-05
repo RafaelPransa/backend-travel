@@ -12,10 +12,9 @@ Sistem Backend berbasis RESTful API berkinerja tinggi untuk mengelola ekosistem 
 
 ## 📌 Daftar Isi
 - [👥 Aktor & Hak Akses (User Roles & ACL)](#-aktor--hak-akses-user-roles--acl)
-- [⚡ Perubahan Terbaru & Refactoring (Juni 2026)](#-perubahan-terbaru--refactoring-juni-2026)
+- [⚡ Perubahan Terbaru & Refactoring (Juni & Juli 2026)](#-perubahan-terbaru--refactoring-juni--juli-2026)
 - [🛠️ Arsitektur & Struktur File](#️-arsitektur--struktur-file)
 - [🗄️ Skema Database & Relasi](#️-skema-database--relasi)
-- [🔌 Rincian API (Endpoints)](#-rincian-api-endpoints)
 - [💻 Tech Stack & Library](#-tech-stack--library)
 - [🚀 Panduan Instalasi & Menjalankan Aplikasi](#-panduan-instalasi--menjalankan-aplikasi)
 
@@ -31,10 +30,28 @@ Aplikasi ini mengadopsi kontrol akses berbasis peran (RBAC) yang ketat untuk men
 
 ---
 
-## ⚡ Perubahan Terbaru & Refactoring (Juni 2026)
+## ⚡ Perubahan Terbaru & Refactoring (Juni & Juli 2026)
 
-Baru-baru ini telah dilakukan evaluasi dan peningkatan kualitas kode (*refactoring*) di seluruh aplikasi untuk meningkatkan performa, skalabilitas, dan keandalan sistem:
+Baru-baru ini telah dilakukan evaluasi, perbaikan bug alur bisnis, dan peningkatan kualitas kode (*refactoring*) di seluruh aplikasi untuk meningkatkan performa, skalabilitas, dan keandalan sistem:
 
+### 📅 Juli 2026 (Penyelesaian Alur Perjalanan Paket Khusus & Keuangan Supir)
+1. **Integrasi Rute Null untuk Pengiriman Paket Khusus**:
+   * Mengubah relasi query di model `DriverModel.getAssignedSchedules` menggunakan `leftJoin` pada tabel `routes` agar perjalanan khusus pengiriman paket (berstatus `route_id = null`) dapat tampil dengan benar di layar tugas aktif supir.
+   * Menarik informasi rute asal/tujuan dari paket itu sendiri dan mengisikannya secara dinamis ke objek jadwal jika rute bernilai kosong.
+2. **Penyelesaian Masalah Timezone Offset**:
+   * Menambahkan helper format tanggal berbasis lokal (`Asia/Jakarta`) di model supir dan controller penugasan untuk menyamakan perbandingan tanggal keberangkatan paket dengan jadwal perjalanan, menghindari bug pergeseran tanggal ke hari sebelumnya akibat standardisasi UTC.
+3. **Penyajian Data Alamat yang Lebih Bersih**:
+   * Membuat helper pemformatan alamat penerima paket dari objek JSON database menjadi string alamat yang bersih dan terstruktur untuk di-render di antarmuka riwayat tugas supir (dilengkapi tooltip hover).
+4. **Penyelesaian Masalah Tab Selesai Penugasan Admin**:
+   * Menyesuaikan endpoint `getAssignments` admin agar ketika fase tugas diset ke `'completed'`, backend tetap menghitung paket berstatus `'delivered'` atau `'selesai'` agar penugasan selesai tidak hilang secara gaib.
+5. **Pagination Tab Selesai Admin**:
+   * Mengimplementasikan sistem pagination berbasis Server-Side Rendering (SSR) dengan batas maksimal **8 item** per halaman pada daftar penugasan selesai di panel admin.
+6. **Pembersihan Berkas Sampah (Root Folder Cleanup)**:
+   * Menghapus 25 skrip diagnostik sementara di folder root untuk menjaga kebersihan repositori dan meminimalisir kekacauan berkas.
+7. **Pembaruan Dokumentasi Swagger API**:
+   * Melengkapi spesifikasi OpenAPI untuk endpoint `unassign` dan `archive` yang sebelumnya belum terdokumentasikan, serta memperbarui enum `assigned` pada parameter query `phase`.
+
+### 📅 Juni 2026 (Optimasi & Refactoring Sistem)
 1. **Optimasi Performa Dashboard Admin (Pencegahan N+1 Query)**:
    * Memindahkan logika kueri dashboard yang kompleks dari `dashboard.controller.js` ke model terdedikasi `src/models/dashboard.model.js`.
    * Menerapkan teknik **Batch-fetching** dengan peta pencarian (**Lookup Maps**) berkinerja $O(1)$ untuk menggantikan iterasi kueri satu per satu (N+1 query loop). Hal ini berhasil mereduksi beban database secara signifikan dan mempercepat response time pada endpoint `/api/admin/dashboard/active-duties` dan `/api/admin/dashboard/metrics`.
@@ -106,93 +123,6 @@ erDiagram
 
 > [!NOTE]
 > Sistem kas masuk (*income*) dan kas keluar (*expense*) dicatat secara otomatis ke dalam tabel `cashflows` melalui database trigger atau integrasi model ketika transaksi/biaya operasional disetujui oleh Super Admin.
-
----
-
-## 🔌 Rincian API (Endpoints)
-
-Backend ini menyediakan **91 RESTful API** yang terdokumentasi secara interaktif via Swagger. Berikut rangkuman endpoint yang tersedia:
-
-### 1. Autentikasi (`/api/auth`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Publik | Registrasi customer baru |
-| `POST` | `/api/auth/login` | Publik | Login pengguna & mendapatkan JWT token |
-| `POST` | `/api/auth/forgot-password` | Publik | Meminta token pemulihan password via email |
-| `POST` | `/api/auth/reset-password` | Publik | Mengubah password menggunakan token reset |
-
-### 2. Publik Konten & Informasi Layanan (`/api/content`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/content/banners` | Publik | Mengambil banner promosi yang sedang aktif |
-| `GET` | `/api/content/destinations` | Publik | Mengambil rekomendasi destinasi pariwisata |
-| `GET` | `/api/content/promotions` | Publik | Mengambil daftar diskon promo aktif (dapat difilter) |
-
-### 3. Layanan Travel Reguler (`/api/travel`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/travel/schedules` | Publik | Cari jadwal perjalanan & sisa kursi tersedia |
-| `POST` | `/api/travel/bookings` | Customer | Booking kursi travel (mengunci kursi 10 menit) |
-| `POST` | `/api/travel/bookings/:id/payment-proof` | Customer | Upload bukti transfer (`multipart/form-data`) |
-| `GET` | `/api/travel/history` | Customer | Melihat riwayat pemesanan tiket pelanggan |
-| `GET` | `/api/travel/manifest/:schedule_id` | Supir, Admin | Melihat daftar penumpang & nomor kursi |
-
-### 4. Layanan Charter Pariwisata (`/api/charter`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/charter/request` | Customer | Mengajukan sewa pariwisata |
-| `POST` | `/api/charter/request/:id/payment-proof` | Customer | Upload bukti pembayaran sewa pariwisata |
-| `GET` | `/api/charter/history` | Customer, Admin | Melihat riwayat charter pribadi/seluruh pengguna |
-| `PUT` | `/api/charter/:id/verify` | Admin | Memverifikasi pembayaran sewa charter (menetapkan harga sewa, armada, supir utama, dan supir cadangan) |
-
-### 5. Layanan Ekspedisi & Paket (`/api/packages`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/packages/shipments` | Publik/Cust | Mengirim barang (otomatis generate resi) |
-| `GET` | `/api/packages/track/:waybill_number` | Publik | Melacak status perjalanan paket dengan nomor resi |
-| `GET` | `/api/packages/history` | Customer | Melihat riwayat pengiriman paket |
-| `PUT` | `/api/packages/shipments/:id/status` | Supir, Admin | Update status & upload bukti penyerahan (`multipart/form-data`) |
-
-### 6. Driver Area (`/api/driver`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/driver/schedules` | Supir | Melihat tugas perjalanan yang diberikan |
-| `PUT` | `/api/driver/schedules/:id/status` | Supir | Update status perjalanan (board, driving, dll.) |
-| `GET` | `/api/driver/expenses` | Supir | Melihat riwayat pengajuan biaya operasional supir |
-| `POST` | `/api/driver/expenses` | Supir | Mengajukan biaya operasional (`multipart/form-data`) |
-| `GET` | `/api/driver/fleets` | Supir, Admin | Melihat status seluruh armada kendaraan |
-| `PUT` | `/api/driver/fleets/:id/status` | Supir, Admin | Mengubah status armada (active / maintenance) |
-| `GET` | `/api/driver/maintenance-logs` | Supir, Admin | Melihat histori perbaikan kendaraan |
-| `POST` | `/api/driver/maintenance-logs` | Supir, Admin | Melaporkan perbaikan baru + nota (`multipart/form-data`) |
-| `PUT` | `/api/driver/maintenance-logs/:id/verify` | Admin | Menolak / menyetujui log perbaikan supir |
-
-### 7. Panel Kelola CMS (`/api/admin/cms`)
-Semua rute di bawah `/api/admin/cms` membutuhkan token autentikasi **Super Admin**:
-- `/promotions` (GET, POST, PUT, DELETE) - Kelola konten promosi di aplikasi frontend.
-- `/fleets` (GET, POST, PUT, DELETE) - Kelola data kendaraan operasional.
-- `/banners` (GET, POST, PUT, DELETE) - Kelola spanduk visual halaman depan.
-- `/destinations` (GET, POST, PUT, DELETE) - Kelola rekomendasi tujuan liburan populer.
-
-### 8. Panel Master Data & Operasional (`/api/admin/master`)
-Semua rute di bawah `/api/admin/master` membutuhkan token autentikasi **Super Admin**:
-- `/fleets`, `/routes`, `/schedules`, `/banners`, `/destinations`, `/promotions`, `/institutional-expenses` (Seluruhnya mendukung GET, POST, PUT, DELETE secara penuh).
-- `/users` (Mendukung GET dan POST secara penuh. Untuk PUT dan DELETE, hanya diperbolehkan jika target akun memiliki role `customer` atau `driver`).
-- `/package-shipments` (Mendukung GET dengan rincian asal/tujuan rute serta info armada. Mendukung PUT untuk menugaskan unit armada `fleet_id` dan mengubah harga ongkir manual `total_price`).
-- `PUT` `/schedules/:id/assign` - Menugaskan supir utama, supir cadangan, dan unit kendaraan ke jadwal perjalanan reguler.
-- `GET` `/travel-bookings` - Memantau antrean pembayaran tiket pelanggan (dilengkapi detail bagasi, alamat, armada & supir).
-- `PUT` `/travel-bookings/:id/verify` - Verifikasi manual lunas tiket regular travel.
-- `PUT` `/travel-bookings/:id/status` - Persetujuan, pembatalan, dan modifikasi pesanan tiket travel.
-
-### 9. Rangkuman Dashboard & Cashflow Keuangan (`/api/admin/cashflow` & `/api/admin/dashboard`)
-| Method | Endpoint | Hak Akses | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/admin/dashboard/metrics` | Admin | Memantau omzet harian, jumlah transaksi, kontribusi armada |
-| `GET` | `/api/admin/dashboard/active-duties` | Admin | Mendapatkan daftar tugas armada & supir aktif hari ini secara teroptimasi |
-| `GET` | `/api/admin/cashflow/summary` | Admin | Rangkuman laba-rugi bersih (*Net Profit*) harian s/d tahunan |
-| `GET` | `/api/admin/cashflow/transactions` | Admin | Buku besar mutasi kas masuk/keluar terpaginasi |
-| `POST` | `/api/admin/cashflow/expense` | Admin | Mencatat biaya operasional instansi secara manual |
-| `GET` | `/api/admin/cashflow/expenses` | Admin | Melihat daftar pengajuan biaya operasional dari supir |
-| `PUT` | `/api/admin/cashflow/expenses/:id/approve` | Admin | Memberi persetujuan / penolakan klaim supir |
 
 ---
 
