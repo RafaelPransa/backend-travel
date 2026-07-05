@@ -1,0 +1,91 @@
+{
+  "id": "e89c4a35-234b-4bfa-a9f8-5c49021a8cd3",
+  "name": "PT. Rini Trans Putri - Lokal Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@rinitransputri.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_password",
+      "value": "admin123",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "driver_email",
+      "value": "asep@gmail.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "driver_password",
+      "value": "driver123",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "customer_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "customer_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "driver_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "package_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "waybill_number",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "schedule_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "driver_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "fleet_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
