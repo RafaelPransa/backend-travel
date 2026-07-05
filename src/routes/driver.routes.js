@@ -19,6 +19,13 @@ const { uploadExpense, uploadMaintenance, uploadPayment } = require('../middlewa
  *       - Driver Area
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: history
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Set true untuk mengambil riwayat tugas supir yang telah selesai
  *     responses:
  *       200:
  *         description: Berhasil mengambil daftar tugas driver

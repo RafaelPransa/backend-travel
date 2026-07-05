@@ -18,9 +18,9 @@ const { authenticate, authorize } = require("../middlewares/auth.middleware");
  *         name: phase
  *         schema:
  *           type: string
- *           enum: [pending, active, completed]
+ *           enum: [pending, assigned, active, completed]
  *           default: pending
- *         description: Fase penugasan (pending = supir belum ditunjuk, active = dalam perjalanan/penjemputan, completed = selesai)
+ *         description: Fase penugasan (pending = supir belum ditunjuk, assigned = supir ditunjuk tapi belum berangkat, active = dalam perjalanan, completed = selesai)
  *     responses:
  *       200:
  *         description: Berhasil mengambil data penugasan
