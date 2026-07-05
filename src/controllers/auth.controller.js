@@ -136,8 +136,8 @@ const forgotPassword = async (req, res) => {
       });
 
     // 6. Buat link reset password untuk dikirim ke email
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4321';
+    const resetLink = `${frontendUrl}/auth/reset-password?token=${rawToken}`;
 
     // 7. Template email HTML
     const emailContent = `
