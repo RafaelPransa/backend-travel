@@ -19,7 +19,7 @@ const formatDateString = (val) => {
 const getActiveDutiesList = async () => {
   // 1. Ambil jadwal reguler hari ini yang aktif
   const activeSchedules = await db('schedules')
-    .join('routes', 'schedules.route_id', 'routes.id')
+    .leftJoin('routes', 'schedules.route_id', 'routes.id')
     .leftJoin('fleets', 'schedules.fleet_id', 'fleets.id')
     .leftJoin('users as driver1', 'schedules.driver_id', 'driver1.id')
     .leftJoin('users as driver_cadangan', 'schedules.driver_2_id', 'driver_cadangan.id')
@@ -143,7 +143,7 @@ const getActiveDutiesList = async () => {
         badge_label: 'RUTE',
         title: s.car_type || 'Travel',
         fleet_code: s.plate_number || 'Belum Di-assign',
-        route: `${s.origin} - ${s.destination}`,
+        route: s.origin && s.destination ? `${s.origin} - ${s.destination}` : 'Pengiriman Khusus Paket',
         total_passengers: passengersCount,
         total_packages: packagesCount,
         drivers: s.driver_2_name ? [s.driver_name, s.driver_2_name].filter(Boolean) : (s.driver_name ? [s.driver_name] : []),

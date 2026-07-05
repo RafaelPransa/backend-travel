@@ -78,7 +78,7 @@ const getExpenses = async (status) => {
   let query = db('operational_expenses')
     .join('users', 'operational_expenses.driver_id', 'users.id')
     .join('schedules', 'operational_expenses.schedule_id', 'schedules.id')
-    .join('routes', 'schedules.route_id', 'routes.id')
+    .leftJoin('routes', 'schedules.route_id', 'routes.id')
     .select(
       'operational_expenses.*',
       'users.name as driver_name',
