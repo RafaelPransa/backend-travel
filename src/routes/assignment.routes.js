@@ -356,4 +356,7 @@ router.put("/:type/:id/reject", authenticate, authorize("super_admin"), assignme
 // PUT /api/admin/assignments/:type/:id/unassign
 router.put("/:type/:id/unassign", authenticate, authorize("super_admin"), assignmentController.unassignDriver);
 
+// DELETE /api/admin/assignments/:type/:id (Archive)
+router.delete("/:type/:id", authenticate, authorize("super_admin"), assignmentController.archiveAssignment);
+
 module.exports = router;

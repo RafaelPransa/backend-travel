@@ -151,14 +151,14 @@ const verifyCharterPayment = async (req, res) => {
 
     const { driver_id, fleet_id, driver_2_id, offered_price } = req.body;
 
-    let nextStatus = 'selesai';
+    let nextStatus = 'dibayar';
     if (booking.status === 'menunggu_konfirmasi') {
       if (!booking.payment_proof_url && booking.payment_method !== 'cash') {
         // Jika memproses pesanan baru (belum ada bukti bayar dan bukan tunai), maka ini adalah tahap Penentuan Harga
         nextStatus = 'menunggu_pembayaran';
       } else {
         // Jika memverifikasi bukti pembayaran
-        nextStatus = 'selesai';
+        nextStatus = 'dibayar';
       }
     } else if (booking.status === 'menunggu_pembayaran') {
       nextStatus = 'menunggu_pembayaran';

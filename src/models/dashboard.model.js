@@ -36,11 +36,16 @@ const getActiveDutiesList = async () => {
       'driver1.name as driver_name',
       'driver_cadangan.name as driver_2_name'
     )
-    .whereRaw("DATE(schedules.departure_time::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
-    .whereNot('schedules.status', 'cancelled')
-    .orderBy('schedules.departure_time', 'asc');
+    .where(function() {
+      this.whereIn('schedules.status', ['on_going', 'departed'])
+          .orWhere(function() {
+            this.whereRaw("DATE(schedules.departure_time::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')")
+                .whereNotIn('schedules.status', ['cancelled', 'completed']);
+          });
+    })
+    .orderBy('schedules.departure_time', 'desc');
 
-  // 2. Ambil sewa pariwisata (charter) hari ini yang berstatus selesai/paid
+  // 2. Ambil sewa pariwisata (charter) hari ini yang berstatus sedang penjemputan/perjalanan
   const activeCharters = await db('charter_bookings')
     .join('users', 'charter_bookings.user_id', 'users.id')
     .leftJoin('users as driver', 'charter_bookings.driver_id', 'driver.id')
@@ -60,10 +65,14 @@ const getActiveDutiesList = async () => {
       'fleets.car_type as fleet_car_type'
     )
     .where(function() {
-      this.whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going', 'selesai'])
-          .orWhereRaw("DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') >= DATE(charter_bookings.departure_date::timestamptz AT TIME ZONE 'Asia/Jakarta') AND DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') <= DATE(charter_bookings.return_date::timestamptz AT TIME ZONE 'Asia/Jakarta')");
+      this.whereIn('charter_bookings.status', ['dalam_penjemputan', 'on_going'])
+          .orWhere(function() {
+            this.whereRaw("DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') >= DATE(charter_bookings.departure_date::timestamptz AT TIME ZONE 'Asia/Jakarta')")
+                .whereRaw("DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') <= DATE(charter_bookings.return_date::timestamptz AT TIME ZONE 'Asia/Jakarta')")
+                .whereNotIn('charter_bookings.status', ['dibatalkan', 'ditolak', 'selesai_final', 'completed']);
+          });
     })
-    .orderBy('charter_bookings.departure_date', 'asc');
+    .orderBy('charter_bookings.departure_date', 'desc');
 
   const allDuties = [];
 
@@ -164,8 +173,8 @@ const getActiveDutiesList = async () => {
     });
   }
 
-  // Urutkan berdasarkan departure_time terdekat (ascending)
-  allDuties.sort((a, b) => a.departure_time - b.departure_time);
+  // Urutkan berdasarkan waktu keberangkatan (descending)
+  allDuties.sort((a, b) => b.departure_time - a.departure_time);
 
   return allDuties;
 };

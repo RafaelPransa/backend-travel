@@ -112,10 +112,10 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
       if (schedule.fleet_id && schedule.departure_time) {
         const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
         schedule.packages = allPackages.filter(p => {
-          const pkgDate = p.departure_date 
-            ? new Date(p.departure_date).toISOString().split('T')[0] 
+          const pkgDate = p.departure_date
+            ? new Date(p.departure_date).toISOString().split('T')[0]
             : new Date(p.created_at).toISOString().split('T')[0];
-          
+
           const isDelivered = ['delivered'].includes(p.status);
           const showPackage = is_history ? isDelivered : !isDelivered;
           return p.fleet_id === schedule.fleet_id && pkgDate === depDate && showPackage;
