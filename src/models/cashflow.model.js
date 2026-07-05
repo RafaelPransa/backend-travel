@@ -29,20 +29,20 @@ const getSummary = async (filter) => {
     lastPeriodIncomeQuery = lastPeriodIncomeQuery.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE - INTERVAL '1 day'");
     lastPeriodExpenseQuery = lastPeriodExpenseQuery.whereRaw("DATE(created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = CURRENT_DATE - INTERVAL '1 day'");
   } else if (filter === 'weekly') {
-    queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
-    queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"));
-    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '14 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '7 days'"));
-    lastPeriodExpenseQuery = lastPeriodExpenseQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '14 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '7 days'"));
+    queryIncome = queryIncome.whereRaw("DATE_TRUNC('week', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('week', CURRENT_DATE)");
+    queryExpense = queryExpense.whereRaw("DATE_TRUNC('week', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('week', CURRENT_DATE)");
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.whereRaw("DATE_TRUNC('week', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('week', CURRENT_DATE - INTERVAL '1 week')");
+    lastPeriodExpenseQuery = lastPeriodExpenseQuery.whereRaw("DATE_TRUNC('week', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('week', CURRENT_DATE - INTERVAL '1 week')");
   } else if (filter === 'monthly') {
-    queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
-    queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
-    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '60 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '30 days'"));
-    lastPeriodExpenseQuery = lastPeriodExpenseQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '60 days'")).where('created_at', '<', db.raw("NOW() - INTERVAL '30 days'"));
+    queryIncome = queryIncome.whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)");
+    queryExpense = queryExpense.whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE)");
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')");
+    lastPeriodExpenseQuery = lastPeriodExpenseQuery.whereRaw("DATE_TRUNC('month', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')");
   } else if (filter === 'yearly') {
-    queryIncome = queryIncome.where('created_at', '>=', db.raw("NOW() - INTERVAL '1 year'"));
-    queryExpense = queryExpense.where('created_at', '>=', db.raw("NOW() - INTERVAL '1 year'"));
-    lastPeriodIncomeQuery = lastPeriodIncomeQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '2 years'")).where('created_at', '<', db.raw("NOW() - INTERVAL '1 year'"));
-    lastPeriodExpenseQuery = lastPeriodExpenseQuery.where('created_at', '>=', db.raw("NOW() - INTERVAL '2 years'")).where('created_at', '<', db.raw("NOW() - INTERVAL '1 year'"));
+    queryIncome = queryIncome.whereRaw("DATE_TRUNC('year', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('year', CURRENT_DATE)");
+    queryExpense = queryExpense.whereRaw("DATE_TRUNC('year', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('year', CURRENT_DATE)");
+    lastPeriodIncomeQuery = lastPeriodIncomeQuery.whereRaw("DATE_TRUNC('year', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('year', CURRENT_DATE - INTERVAL '1 year')");
+    lastPeriodExpenseQuery = lastPeriodExpenseQuery.whereRaw("DATE_TRUNC('year', created_at::timestamptz AT TIME ZONE 'Asia/Jakarta') = DATE_TRUNC('year', CURRENT_DATE - INTERVAL '1 year')");
   }
 
   const incomeResult = await queryIncome.sum('amount as total');
