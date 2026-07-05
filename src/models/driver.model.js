@@ -114,11 +114,22 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
 
       // Filter paket berdasarkan fleet_id dan tanggal yang sama
       if (schedule.fleet_id && schedule.departure_time) {
-        const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+        const formatDateLocal = (dateInput) => {
+          if (!dateInput) return null;
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Jakarta',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          return formatter.format(new Date(dateInput));
+        };
+
+        const depDate = formatDateLocal(schedule.departure_time);
         schedule.packages = allPackages.filter(p => {
           const pkgDate = p.departure_date
-            ? new Date(p.departure_date).toISOString().split('T')[0]
-            : new Date(p.created_at).toISOString().split('T')[0];
+            ? formatDateLocal(p.departure_date)
+            : formatDateLocal(p.created_at);
 
           const isDelivered = ['delivered'].includes(p.status);
           const showPackage = is_history ? isDelivered : !isDelivered;

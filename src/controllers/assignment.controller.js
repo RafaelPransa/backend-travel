@@ -2,6 +2,17 @@ const db = require("../config/db");
 const { getAvailableFleets } = require('../helpers/fleetAvailability');
 const { autoMergePackagesToRoute } = require("../models/travel.model");
 
+const formatDateLocal = (dateInput) => {
+  if (!dateInput) return null;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(new Date(dateInput));
+};
+
 const getAssignments = async (req, res) => {
   const phase = req.query.phase || 'pending'; // pending, active, completed
 
@@ -70,7 +81,7 @@ const getAssignments = async (req, res) => {
       let valid_packages = 0;
       let valid_package_revenue = 0;
       if (sched.fleet_id) {
-        const depDate = new Date(sched.departure_date).toISOString().split('T')[0];
+        const depDate = formatDateLocal(sched.departure_date);
         const packages = await db('package_shipments')
           .where('fleet_id', sched.fleet_id)
           .where(function () {
@@ -292,7 +303,7 @@ const rejectAssignment = async (req, res) => {
         await trx('travel_bookings').where({ schedule_id: id }).update({ booking_status: 'dibatalkan' });
 
         if (schedule.fleet_id && schedule.departure_time) {
-          const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+          const depDate = formatDateLocal(schedule.departure_time);
           await trx('package_shipments')
             .where('fleet_id', schedule.fleet_id)
             .whereRaw('DATE(created_at) <= ?', [depDate])
@@ -325,7 +336,7 @@ const unassignDriver = async (req, res) => {
         await trx('schedules').where({ id }).update({ driver_id: null, driver_2_id: null, fleet_id: null });
 
         if (schedule.fleet_id && schedule.departure_time) {
-          const depDate = new Date(schedule.departure_time).toISOString().split('T')[0];
+          const depDate = formatDateLocal(schedule.departure_time);
           await trx('package_shipments')
             .where('fleet_id', schedule.fleet_id)
             .whereRaw('DATE(created_at) <= ?', [depDate])
@@ -357,7 +368,7 @@ const changeFleet = async (req, res) => {
         await trx('schedules').where({ id }).update({ fleet_id });
 
         if (oldSchedule && oldSchedule.fleet_id && oldSchedule.departure_time) {
-          const depDate = new Date(oldSchedule.departure_time).toISOString().split('T')[0];
+          const depDate = formatDateLocal(oldSchedule.departure_time);
           await trx('package_shipments')
             .where('fleet_id', oldSchedule.fleet_id)
             .whereRaw('DATE(created_at) <= ?', [depDate])
