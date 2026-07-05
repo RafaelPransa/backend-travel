@@ -82,12 +82,19 @@ const getAssignments = async (req, res) => {
       let valid_package_revenue = 0;
       if (sched.fleet_id) {
         const depDate = formatDateLocal(sched.departure_date);
-        const packages = await db('package_shipments')
+        const packagesQuery = db('package_shipments')
           .where('fleet_id', sched.fleet_id)
           .where(function () {
             this.whereRaw('DATE(created_at) <= ?', [depDate]);
-          })
-          .whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered']);
+          });
+
+        if (phase === 'completed') {
+          packagesQuery.whereIn('status', ['delivered', 'selesai']);
+        } else {
+          packagesQuery.whereNotIn('status', ['dibatalkan', 'ditolak', 'REJECTED', 'delivered']);
+        }
+
+        const packages = await packagesQuery;
 
         total_packages = packages.length;
         package_revenue = packages.reduce((sum, p) => sum + (parseFloat(p.original_price) || 0), 0);
