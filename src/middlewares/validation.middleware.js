@@ -1,11 +1,45 @@
 const { z } = require('zod');
 
+// Fungsi pembantu untuk memvalidasi pola NIK KTP Indonesia
+const validateNIK = (nik) => {
+  // 1. Cek panjang dan hanya angka
+  if (!/^\d{16}$/.test(nik)) return false;
+
+  // 2. Cek kode wilayah
+  const prov = parseInt(nik.substring(0, 2), 10);
+  const kabKota = parseInt(nik.substring(2, 4), 10);
+  const kec = parseInt(nik.substring(4, 6), 10);
+
+  if (prov < 11 || prov > 95) return false;       // Kode Provinsi valid (11 - 95)
+  if (kabKota < 1 || kabKota > 99) return false;  // Kode Kota/Kabupaten tidak boleh 00
+  if (kec < 1 || kec > 99) return false;          // Kode Kecamatan tidak boleh 00
+
+  // 3. Cek Tanggal Lahir (digit ke-7 sampai 12)
+  let day = parseInt(nik.substring(6, 8), 10);
+  const month = parseInt(nik.substring(8, 10), 10);
+  const year = parseInt(nik.substring(10, 12), 10);
+
+  // Jika perempuan, tanggal lahir ditambah 40
+  if (day > 40) {
+    day -= 40;
+  }
+
+  // Validasi keaslian tanggal & bulan lahir
+  if (day < 1 || day > 31) return false;
+  if (month < 1 || month > 12) return false;
+
+  return true;
+};
+
 // Schema untuk Register
 const registerSchema = z.object({
   name: z.string().min(3, 'Nama minimal 3 karakter').max(100),
   email: z.string().email('Format email tidak valid').max(100),
   password: z.string().min(6, 'Password minimal 6 karakter'),
-  phone_number: z.string().min(10, 'Nomor telepon tidak valid').max(15)
+  phone_number: z.string().min(10, 'Nomor telepon tidak valid').max(15),
+  nik: z.string().length(16, 'NIK harus terdiri dari 16 karakter').refine(validateNIK, {
+    message: 'Format NIK tidak valid atau tidak sesuai dengan aturan kependudukan Indonesia'
+  })
 });
 
 // Schema untuk Login

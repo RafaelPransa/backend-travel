@@ -9,7 +9,7 @@ const db = require('../config/db');
 
 const register = async (req, res) => {
   try {
-    const { name, email, password, phone_number } = req.body;
+    const { name, email, password, phone_number, nik } = req.body;
 
     // Cek apakah email sudah terdaftar
     const existingUser = await UserModel.findByEmail(email);
@@ -17,6 +17,15 @@ const register = async (req, res) => {
       return res.status(400).json({
         status: 'error',
         message: 'Email sudah terdaftar'
+      });
+    }
+
+    // Cek apakah NIK sudah terdaftar
+    const existingNIK = await db('users').where({ nik }).first();
+    if (existingNIK) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'NIK sudah terdaftar'
       });
     }
 
@@ -29,8 +38,43 @@ const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      phone_number
+      phone_number,
+      nik
     });
+
+    // Kirim email selamat datang
+    const emailHtml = `
+      <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #0284c7; text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 10px;">Registrasi Berhasil!</h2>
+        <p>Halo <strong>${name}</strong>,</p>
+        <p>Selamat bergabung di layanan transportasi kami. Akun Anda telah berhasil dibuat.</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 120px;">Nama:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">Email:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">NIK KTP:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${nik}</td>
+          </tr>
+        </table>
+        <p style="margin-top: 20px; text-align: center;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:4321'}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Mulai Pesan Layanan</a>
+        </p>
+        <br>
+        <p style="font-size: 0.9em; color: #666;">Salam hangat,<br><strong>PT. Rini Trans Putri</strong></p>
+      </div>
+    `;
+
+    try {
+      await sendEmail(email, 'Registrasi Akun Rini Trans Putri Berhasil', emailHtml);
+    } catch (mailError) {
+      console.error('Email send failed during registration:', mailError);
+    }
 
     return res.status(201).json({
       status: 'success',
