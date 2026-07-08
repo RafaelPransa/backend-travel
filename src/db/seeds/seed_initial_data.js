@@ -47,12 +47,14 @@ exports.seed = async function (knex) {
     {
       plate_number: 'Z 1111 TA',
       car_type: 'Luxio',
-      seat_capacity: 6
+      seat_capacity: 6,
+      max_payload: 1450
     },
     {
       plate_number: 'Z 2222 TB',
       car_type: 'Elf',
-      seat_capacity: 12
+      seat_capacity: 12,
+      max_payload: 2000
     }
   ]);
 

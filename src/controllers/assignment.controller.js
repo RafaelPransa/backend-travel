@@ -115,6 +115,25 @@ const getAssignments = async (req, res) => {
         valid_package_revenue = validPackages.reduce((sum, p) => sum + (parseFloat(p.original_price) || 0), 0);
       }
 
+      // Get cargo load weight metrics
+      const TravelModel = require('../models/travel.model');
+      const depDateStr = formatDateLocal(sched.departure_date);
+      let loadInfo = { total_weight: 0, max_payload: 1450 };
+      if (sched.route_id) {
+        loadInfo = await TravelModel.calculateLoad(sched.route_id, depDateStr);
+      } else if (sched.fleet_id) {
+        const packages = await db('package_shipments')
+          .where('fleet_id', sched.fleet_id)
+          .where('departure_date', depDateStr)
+          .whereNotIn('status', ['delivered', 'dibatalkan', 'ditolak']);
+        const total_weight = packages.reduce((sum, p) => sum + parseFloat(p.weight || 0), 0);
+        const fleet = await db('fleets').where('id', sched.fleet_id).first();
+        loadInfo = {
+          total_weight,
+          max_payload: fleet ? fleet.max_payload : 1450
+        };
+      }
+
       // Only show in 'pending' if at least one booking/package is validated
       if (phase === 'pending' && valid_passengers === 0 && valid_packages === 0) {
         return null;
@@ -135,7 +154,9 @@ const getAssignments = async (req, res) => {
         fleet_capacity: sched.fleet_capacity,
         total_passengers: phase === 'pending' ? valid_passengers : total_passengers,
         total_packages: phase === 'pending' ? valid_packages : total_packages,
-        total_revenue: phase === 'pending' ? (valid_passenger_revenue + valid_package_revenue) : (passenger_revenue + package_revenue)
+        total_revenue: phase === 'pending' ? (valid_passenger_revenue + valid_package_revenue) : (passenger_revenue + package_revenue),
+        total_weight: loadInfo.total_weight || 0,
+        max_payload: loadInfo.max_payload || 1450
       };
     }))).filter(Boolean);
 

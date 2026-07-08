@@ -147,6 +147,22 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
             schedule.destination = 'Pool Tujuan';
           }
         }
+
+        // Enrich with load metrics
+        const TravelModel = require('./travel.model');
+        let loadInfo = { total_weight: 0, max_payload: 1450 };
+        if (schedule.route_id) {
+          loadInfo = await TravelModel.calculateLoad(schedule.route_id, depDate);
+        } else {
+          const total_weight = schedule.packages.reduce((sum, p) => sum + parseFloat(p.weight || 0), 0);
+          const fleet = await db('fleets').where('id', schedule.fleet_id).first();
+          loadInfo = {
+            total_weight,
+            max_payload: fleet ? fleet.max_payload : 1450
+          };
+        }
+        schedule.total_weight = loadInfo.total_weight || 0;
+        schedule.max_payload = loadInfo.max_payload || 1450;
       } else {
         schedule.packages = [];
       }
