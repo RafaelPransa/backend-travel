@@ -63,15 +63,24 @@ const register = async (req, res) => {
           </tr>
         </table>
         <p style="margin-top: 20px; text-align: center;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:4321'}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Mulai Pesan Layanan</a>
+          <a href="https://rinitransputri.my.id" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Mulai Pesan Layanan</a>
         </p>
         <br>
-        <p style="font-size: 0.9em; color: #666;">Salam hangat,<br><strong>PT. Rini Trans Putri</strong></p>
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Salam hangat,</p>
+        <p style="font-size: 0.9em; color: #666; font-weight: bold; margin-top: 0;">PT. Rini Trans Putri</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 0.8em; color: #999; text-align: center; line-height: 1.5;">
+          Email ini dikirimkan secara otomatis oleh sistem pendaftaran PT. Rini Trans Putri.<br>
+          Kantor Pusat: Jl. Terusan Jakarta No. 175, Antapani, Bandung, Jawa Barat, Indonesia.<br>
+          Jika Anda tidak merasa melakukan pendaftaran ini, harap abaikan email ini.
+        </p>
       </div>
     `;
 
+    const emailText = `Registrasi Berhasil! Halo ${name}, selamat bergabung di layanan transportasi PT. Rini Trans Putri. Akun Anda telah berhasil dibuat dengan NIK KTP: ${nik} dan Email: ${email}. Kantor Pusat: Jl. Terusan Jakarta No. 175, Antapani, Bandung, Jawa Barat.`;
+
     try {
-      await sendEmail(email, 'Registrasi Akun Rini Trans Putri Berhasil', emailHtml);
+      await sendEmail(email, 'Registrasi Akun Rini Trans Putri Berhasil', emailHtml, emailText);
     } catch (mailError) {
       console.error('Email send failed during registration:', mailError);
     }
