@@ -624,6 +624,10 @@ router.use(authenticate, authorize('super_admin'));
  * /api/admin/master/travel-bookings:
  *   get:
  *     summary: Mendapatkan Semua Antrean Booking Tiket Travel (Super Admin)
+ *     description: |
+ *       Mengambil seluruh antrean tiket travel yang perlu ditangani admin.
+ *       Tiket-tiket yang berasal dari pemesanan multi-kursi (grup booking) akan memiliki
+ *       `booking_code` yang sama. Frontend mengelompokkan mereka menjadi satu baris per grup.
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -635,6 +639,9 @@ router.use(authenticate, authorize('super_admin'));
  * /api/admin/master/travel-bookings/{id}/verify:
  *   put:
  *     summary: Verifikasi Pembayaran Tiket Travel (Super Admin)
+ *     description: |
+ *       Memverifikasi pembayaran satu tiket. Jika tiket memiliki `booking_code`
+ *       (grup booking), semua tiket dalam grup akan diverifikasi bersamaan.
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -646,14 +653,26 @@ router.use(authenticate, authorize('super_admin'));
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Booking ID
+ *         description: Booking ID (salah satu dari grup sudah cukup)
  *     responses:
  *       200:
  *         description: Tiket travel berhasil diverifikasi (lunas)
  * 
  * /api/admin/master/travel-bookings/{id}/status:
  *   put:
- *     summary: Persetujuan, Penolakan, dan Update Data Tiket Travel (Super Admin)
+ *     summary: Persetujuan, Penolakan, dan Penetapan Harga Tiket Travel (Super Admin)
+ *     description: |
+ *       Memperbarui status, ETA, atau harga sebuah tiket travel.
+ *
+ *       **Penetapan Harga Grup (Penting):**
+ *       Ketika admin memasukkan field `price` untuk tiket yang merupakan bagian dari
+ *       **grup booking** (berbagi `booking_code` yang sama), nilai `price` tersebut
+ *       dianggap sebagai **harga total untuk semua kursi dalam grup**.
+ *       Backend secara otomatis membaginya rata ke setiap kursi:
+ *       `pricePerSeat = price / jumlahKursiDalamGrup`.
+ *
+ *       Contoh: Admin memasukkan price=500000 untuk grup 2 kursi →
+ *       masing-masing kursi mendapat price=250000 → customer melihat total=500000. ✓
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -665,7 +684,7 @@ router.use(authenticate, authorize('super_admin'));
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Booking ID
+ *         description: Booking ID (salah satu dari grup sudah cukup untuk update seluruh grup)
  *     requestBody:
  *       required: true
  *       content:
@@ -676,15 +695,34 @@ router.use(authenticate, authorize('super_admin'));
  *               booking_status:
  *                 type: string
  *                 enum: [menunggu_konfirmasi, menunggu_pembayaran, selesai, dibatalkan, ditolak]
+ *                 description: Status baru untuk tiket
  *               eta:
  *                 type: string
  *                 example: "08:30"
+ *                 description: Estimasi waktu tiba/berangkat
  *               price:
  *                 type: number
- *                 example: 200000
+ *                 example: 500000
+ *                 description: |
+ *                   Harga yang ditetapkan admin. Untuk grup booking, ini adalah HARGA TOTAL
+ *                   untuk semua kursi — backend membaginya otomatis per kursi.
  *     responses:
  *       200:
  *         description: Tiket travel berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Input tidak valid
+ *       404:
+ *         description: Tiket tidak ditemukan
  */
 
 // Helper CRUD generik (di-import dari modul bersama)
@@ -820,6 +858,10 @@ crudRoute('/charter-bookings', 'charter_bookings');
  * /api/admin/master/travel-bookings:
  *   get:
  *     summary: Mendapatkan Semua Antrean Booking Tiket Travel (Super Admin)
+ *     description: |
+ *       Mengambil seluruh antrean tiket travel yang perlu ditangani admin.
+ *       Tiket-tiket yang berasal dari pemesanan multi-kursi (grup booking) akan memiliki
+ *       `booking_code` yang sama. Frontend mengelompokkan mereka menjadi satu baris per grup.
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -831,6 +873,9 @@ crudRoute('/charter-bookings', 'charter_bookings');
  * /api/admin/master/travel-bookings/{id}/verify:
  *   put:
  *     summary: Verifikasi Pembayaran Tiket Travel (Super Admin)
+ *     description: |
+ *       Memverifikasi pembayaran satu tiket. Jika tiket memiliki `booking_code`
+ *       (grup booking), semua tiket dalam grup akan diverifikasi bersamaan.
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -842,14 +887,26 @@ crudRoute('/charter-bookings', 'charter_bookings');
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Booking ID
+ *         description: Booking ID (salah satu dari grup sudah cukup)
  *     responses:
  *       200:
  *         description: Tiket travel berhasil diverifikasi (lunas)
  * 
  * /api/admin/master/travel-bookings/{id}/status:
  *   put:
- *     summary: Persetujuan, Penolakan, dan Update Data Tiket Travel (Super Admin)
+ *     summary: Persetujuan, Penolakan, dan Penetapan Harga Tiket Travel (Super Admin)
+ *     description: |
+ *       Memperbarui status, ETA, atau harga sebuah tiket travel.
+ *
+ *       **Penetapan Harga Grup (Penting):**
+ *       Ketika admin memasukkan field `price` untuk tiket yang merupakan bagian dari
+ *       **grup booking** (berbagi `booking_code` yang sama), nilai `price` tersebut
+ *       dianggap sebagai **harga total untuk semua kursi dalam grup**.
+ *       Backend secara otomatis membaginya rata ke setiap kursi:
+ *       `pricePerSeat = price / jumlahKursiDalamGrup`.
+ *
+ *       Contoh: Admin memasukkan price=500000 untuk grup 2 kursi →
+ *       masing-masing kursi mendapat price=250000 → customer melihat total=500000. ✓
  *     tags:
  *       - Admin Operational Area
  *     security:
@@ -861,7 +918,7 @@ crudRoute('/charter-bookings', 'charter_bookings');
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Booking ID
+ *         description: Booking ID (salah satu dari grup sudah cukup untuk update seluruh grup)
  *     requestBody:
  *       required: true
  *       content:
@@ -872,15 +929,34 @@ crudRoute('/charter-bookings', 'charter_bookings');
  *               booking_status:
  *                 type: string
  *                 enum: [menunggu_konfirmasi, menunggu_pembayaran, selesai, dibatalkan, ditolak]
+ *                 description: Status baru untuk tiket
  *               eta:
  *                 type: string
  *                 example: "08:30"
+ *                 description: Estimasi waktu tiba/berangkat
  *               price:
  *                 type: number
- *                 example: 200000
+ *                 example: 500000
+ *                 description: |
+ *                   Harga yang ditetapkan admin. Untuk grup booking, ini adalah HARGA TOTAL
+ *                   untuk semua kursi — backend membaginya otomatis per kursi.
  *     responses:
  *       200:
  *         description: Tiket travel berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Input tidak valid
+ *       404:
+ *         description: Tiket tidak ditemukan
  */
 
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)

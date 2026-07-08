@@ -14,7 +14,12 @@ const { uploadExpense, uploadMaintenance, uploadPayment } = require('../middlewa
  * /api/driver/schedules:
  *   get:
  *     summary: Mendapatkan Tugas Perjalanan Driver (Driver Only)
- *     description: Driver melihat semua jadwal perjalanan yang ditugaskan beserta daftar manifest penumpang.
+ *     description: |
+ *       Driver melihat semua jadwal perjalanan yang ditugaskan beserta manifest penumpang.
+ *       Setiap jadwal memiliki array `passengers` — penumpang yang memesan dengan `booking_code`
+ *       yang sama adalah bagian dari **grup booking** (misalnya, 2 kursi dalam satu transaksi).
+ *       Frontend perlu mengelompokkan passengers berdasarkan `booking_code` untuk ditampilkan
+ *       sebagai satu entitas.
  *     tags:
  *       - Driver Area
  *     security:
@@ -44,6 +49,90 @@ const { uploadExpense, uploadMaintenance, uploadPayment } = require('../middlewa
  *                   type: array
  *                   items:
  *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         description: Schedule ID
+ *                       fleet_id:
+ *                         type: string
+ *                         format: uuid
+ *                       departure_time:
+ *                         type: string
+ *                         format: date-time
+ *                       status:
+ *                         type: string
+ *                       origin:
+ *                         type: string
+ *                       destination:
+ *                         type: string
+ *                       plate_number:
+ *                         type: string
+ *                       car_type:
+ *                         type: string
+ *                       isCharter:
+ *                         type: boolean
+ *                         description: true jika jadwal adalah charter, false jika rute reguler
+ *                       passengers:
+ *                         type: array
+ *                         description: |
+ *                           Daftar penumpang. Penumpang dengan `booking_code` yang sama adalah
+ *                           bagian dari satu grup booking (misalnya 2 kursi 1 customer).
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             booking_id:
+ *                               type: string
+ *                               format: uuid
+ *                               description: ID unik tiket individual
+ *                             booking_code:
+ *                               type: string
+ *                               nullable: true
+ *                               description: Kode grup booking. NULL berarti pemesanan tunggal. Sama antar kursi yang dipesan bersamaan.
+ *                               example: "TRV-20260708-ABCD"
+ *                             ticket_passenger_name:
+ *                               type: string
+ *                               nullable: true
+ *                               description: Nama penumpang yang diinput per-kursi saat booking
+ *                             seat_number:
+ *                               type: integer
+ *                             price:
+ *                               type: number
+ *                               description: Harga per-kursi (bukan total grup)
+ *                             booking_status:
+ *                               type: string
+ *                               enum: [menunggu_konfirmasi, menunggu_pembayaran, dibayar, dalam_penjemputan, dalam_perjalanan, selesai, dibatalkan]
+ *                             payment_method:
+ *                               type: string
+ *                               enum: [cash, cashless]
+ *                             baggage_weight:
+ *                               type: number
+ *                               nullable: true
+ *                               description: Berat barang bawaan (kg)
+ *                             baggage_dimension:
+ *                               type: string
+ *                               nullable: true
+ *                               description: Dimensi barang bawaan
+ *                             is_baggage_charge:
+ *                               type: boolean
+ *                               nullable: true
+ *                               description: true jika ada biaya tambahan untuk barang bawaan
+ *                             passenger_name:
+ *                               type: string
+ *                               description: Nama akun customer (dari tabel users)
+ *                             passenger_phone:
+ *                               type: string
+ *                             pickup_address:
+ *                               type: object
+ *                               description: JSON objek alamat penjemputan
+ *                             dropoff_address:
+ *                               type: object
+ *                               description: JSON objek alamat tujuan
+ *                       packages:
+ *                         type: array
+ *                         description: Daftar paket kiriman yang harus diantar
+ *                         items:
+ *                           type: object
  */
 router.get('/schedules', authenticate, authorize('driver'), driverController.getMySchedules);
 
@@ -87,8 +176,16 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
  * @openapi
  * /api/driver/schedules/bookings/{id}/status:
  *   put:
- *     summary: Memperbarui Status Penumpang (Driver Only)
- *     description: Driver memperbarui status penumpang (dalam_penjemputan, dalam_perjalanan, selesai).
+ *     summary: Memperbarui Status Penumpang — Mendukung Grup Booking (Driver Only)
+ *     description: |
+ *       Driver memperbarui status penumpang berdasarkan `booking_id` satu kursi.
+ *       **Perilaku Grup Booking:** Jika booking tersebut memiliki `booking_code` (artinya
+ *       merupakan bagian dari pemesanan multi-kursi), backend secara otomatis memperbarui
+ *       status **semua kursi** yang berbagi `booking_code` yang sama sekaligus — cukup
+ *       kirim request sekali dengan salah satu `booking_id` dari grup.
+ *
+ *       Untuk pembayaran **Cash** + status **selesai**, sertakan foto bukti penagihan
+ *       menggunakan `multipart/form-data` dengan field `payment_proof`.
  *     tags:
  *       - Driver Area
  *     security:
@@ -100,7 +197,7 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Booking ID
+ *         description: Booking ID (salah satu ID dari grup sudah cukup untuk update seluruh grup)
  *     requestBody:
  *       required: true
  *       content:
@@ -112,9 +209,44 @@ router.put('/schedules/:id/status', authenticate, authorize('driver'), validate(
  *             properties:
  *               status:
  *                 type: string
+ *                 enum: [dalam_penjemputan, dalam_perjalanan, selesai]
+ *                 description: Status baru yang ingin ditetapkan ke penumpang
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [selesai]
+ *                 description: Wajib "selesai" jika menggunakan form-data
+ *               payment_proof:
+ *                 type: string
+ *                 format: binary
+ *                 description: Foto bukti penagihan. Wajib disertakan jika metode pembayaran Cash dan status selesai.
  *     responses:
  *       200:
- *         description: Status penumpang berhasil diperbarui
+ *         description: Status penumpang (dan seluruh anggota grup booking) berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                 is_schedule_completed:
+ *                   type: boolean
+ *                   description: true jika semua penumpang dan paket dalam jadwal sudah selesai
+ *       401:
+ *         description: Token JWT tidak valid atau kosong
+ *       403:
+ *         description: Bukan milik driver yang sedang login
+ *       404:
+ *         description: Booking tidak ditemukan
  */
 router.put('/schedules/bookings/:id/status', authenticate, authorize('driver'), uploadPayment.single('payment_proof'), driverController.updateTravelBookingStatus);
 
