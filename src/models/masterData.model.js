@@ -166,6 +166,22 @@ const updateTravelBookingStatus = async (booking_id, payload) => {
   }
 
   if (booking.booking_code) {
+    // FIX: Admin memasukkan TOTAL harga untuk seluruh grup.
+    // Kita harus membaginya per-kursi sebelum ditulis ke tiap baris,
+    // agar ketika frontend menjumlahkan kembali, hasilnya = total yang admin tentukan.
+    if (updatePayload.price !== undefined) {
+      const groupCountResult = await db('travel_bookings')
+        .where('booking_code', booking.booking_code)
+        .count('id as count')
+        .first();
+      const seatCount = parseInt(groupCountResult.count, 10) || 1;
+      const pricePerSeat = Math.round(updatePayload.price / seatCount);
+      updatePayload.price = pricePerSeat;
+      // Samakan original_price dengan price yang di-set admin agar tidak
+      // menampilkan diskon palsu di sisi customer.
+      updatePayload.original_price = pricePerSeat;
+    }
+
     await db('travel_bookings')
       .where('booking_code', booking.booking_code)
       .update(updatePayload);
