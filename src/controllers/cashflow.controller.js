@@ -2,8 +2,8 @@ const CashflowModel = require('../models/cashflow.model');
 
 const getCashflowSummary = async (req, res) => {
   try {
-    const { filter } = req.query; // 'weekly', 'monthly', 'yearly'
-    const summary = await CashflowModel.getSummary(filter);
+    const { filter, startDate, endDate } = req.query; // 'weekly', 'monthly', 'yearly', startDate, endDate
+    const summary = await CashflowModel.getSummary(filter, startDate, endDate);
     const netProfit = summary.totalIncome - summary.totalExpense;
 
     return res.status(200).json({
@@ -121,9 +121,9 @@ const approveExpense = async (req, res) => {
 
 const getRecentTransactions = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, startDate, endDate } = req.query;
 
-    const result = await CashflowModel.getPaginatedTransactions(page, limit);
+    const result = await CashflowModel.getPaginatedTransactions(page, limit, startDate, endDate);
 
     return res.status(200).json({
       status: 'success',
