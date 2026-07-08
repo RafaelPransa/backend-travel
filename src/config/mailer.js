@@ -15,14 +15,22 @@ const transporter = nodemailer.createTransport({
  * @param {string} to - Alamat email penerima
  * @param {string} subject - Subjek email
  * @param {string} html - Isi email dalam format HTML
+ * @param {string} [text] - Alternatif isi email dalam format teks biasa
  */
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (to, subject, html, text = '') => {
   try {
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || '"PT. Rini Trans Putri" <noreply@rinitransputri.com>',
       to,
       subject,
+      text,
       html,
+      priority: 'high',
+      headers: {
+        'Importance': 'high',
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High'
+      }
     });
     console.log('Email sent: %s', info.messageId);
     return info;

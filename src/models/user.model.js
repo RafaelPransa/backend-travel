@@ -9,7 +9,7 @@ const findById = async (id) => {
 };
 
 const create = async (userData) => {
-  const [user] = await db('users').insert(userData).returning(['id', 'name', 'email', 'role', 'phone_number']);
+  const [user] = await db('users').insert(userData).returning(['id', 'name', 'email', 'role', 'phone_number', 'nik']);
   return user;
 };
 
