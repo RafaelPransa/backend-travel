@@ -298,10 +298,10 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
 };
 
 const createBooking = async (data) => {
-  // Modifikasi agar mendukung alokasi dinamis (membuat schedule jika belum ada)
   let schedule_id = data.schedule_id;
   let target_route_id = data.route_id;
 
+  // Resolve target_route_id if only schedule_id is provided
   if (schedule_id && !target_route_id) {
     const s = await db('schedules').where('id', schedule_id).first();
     if (s) target_route_id = s.route_id;
@@ -319,69 +319,61 @@ const createBooking = async (data) => {
     }
   }
 
-  let extraSeatsCount = 0;
-  if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
-    extraSeatsCount = 1;
+  // Support backward compatibility (if single passenger format is sent)
+  let passengers = data.passengers;
+  if (!passengers && data.seat_number) {
+    passengers = [{
+      seat_number: data.seat_number,
+      passenger_name: data.passenger_name || 'Penumpang Utama',
+      baggage_description: data.baggage_description || null,
+      baggage_weight: data.baggage_weight || null,
+      baggage_dimension: data.baggage_dimension || null
+    }];
   }
 
-  // Cek batas beban (payload) armada
+  if (!passengers || passengers.length === 0) {
+    throw new Error('Data penumpang tidak valid');
+  }
+
+  // 1. Hitung total jatah berat & ekstra kursi untuk seluruh grup
+  let totalRequiredSeats = passengers.length;
+  let totalExtraSeats = 0;
+  let accumulativeWeight = 0;
+
+  passengers.forEach(p => {
+    let extraSeats = 0;
+    const weight = parseFloat(p.baggage_weight || 0);
+    if (weight >= 60 || p.baggage_dimension === 'super_besar') {
+      extraSeats = 1;
+    }
+    totalExtraSeats += extraSeats;
+    accumulativeWeight += (1 + extraSeats) * 110;
+  });
+
+  totalRequiredSeats += totalExtraSeats;
+
+  // 2. Validasi Batas Payload Armada secara akumulatif
   if (target_route_id && depDate) {
     const loadInfo = await calculateLoad(target_route_id, depDate);
-    const additionalWeight = (1 + extraSeatsCount) * 110;
-    if (loadInfo.max_payload > 0 && (loadInfo.total_weight + additionalWeight) > loadInfo.max_payload) {
-      const error = new Error(`Beban armada sudah penuh pada tanggal tersebut. Sisa kapasitas kargo tidak mencukupi.`);
+    if (loadInfo.max_payload > 0 && (loadInfo.total_weight + accumulativeWeight) > loadInfo.max_payload) {
+      const error = new Error(`Beban kargo armada sudah penuh pada tanggal tersebut. Sisa kapasitas tidak mencukupi untuk seluruh penumpang & bagasi.`);
       error.code = 'EXCEED_MAX_PAYLOAD';
       throw error;
     }
   }
 
-  if (extraSeatsCount > 0) {
-    // Pastikan sisa kursi cukup untuk penumpang + barang bawaan (karena booking belum masuk DB)
+  // 3. Validasi Ketersediaan Kursi secara akumulatif
+  if (target_route_id && depDate) {
     const loadInfo = await calculateLoad(target_route_id, depDate);
-    if (loadInfo.sisa_kursi < extraSeatsCount + 1) {
-      // Cari tanggal terdekat dalam 7 hari ke depan
-      let nextAvailableDate = null;
-      let nextScheduleId = null;
-
-      for (let i = 1; i <= 7; i++) {
-        const nextDate = new Date(data.departure_date);
-        nextDate.setDate(nextDate.getDate() + i);
-        const yyyy = nextDate.getFullYear();
-        const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(nextDate.getDate()).padStart(2, '0');
-        const nextDateStr = `${yyyy}-${mm}-${dd}`;
-
-        // Cari schedule existing untuk tanggal tersebut jika ada
-        const existingNext = await db('schedules')
-          .where('route_id', target_route_id)
-          .whereRaw('DATE(departure_time) = ?', [nextDateStr])
-          .first();
-
-        const nextLoadInfo = await calculateLoad(target_route_id, nextDateStr, existingNext ? existingNext.id : null);
-        if (nextLoadInfo.sisa_kursi >= extraSeatsCount + 1) {
-          nextAvailableDate = nextDateStr;
-          nextScheduleId = existingNext ? existingNext.id : null;
-          break;
-        }
-      }
-
-      const errorMsg = `Sisa kursi di armada (Sisa ${loadInfo.sisa_kursi}) tidak cukup untuk Anda dan barang bawaan Anda (Butuh ${extraSeatsCount + 1}).`;
-      if (nextAvailableDate) {
-        const error = new Error(errorMsg);
-        error.code = 'NEAREST_DATE_OFFER';
-        error.nearest_date = nextAvailableDate;
-        error.nearest_schedule_id = nextScheduleId;
-        throw error;
-      } else {
-        const error = new Error(errorMsg + " Tidak ada jadwal kosong dalam 7 hari ke depan.");
-        error.code = 'NOT_ENOUGH_SEATS_FOR_BAGGAGE';
-        throw error;
-      }
+    if (loadInfo.sisa_kursi < totalRequiredSeats) {
+      const error = new Error(`Sisa kursi di armada (Sisa ${loadInfo.sisa_kursi}) tidak cukup untuk jumlah penumpang Anda (Butuh ${totalRequiredSeats} kursi termasuk bagasi).`);
+      error.code = 'NOT_ENOUGH_SEATS';
+      throw error;
     }
   }
 
+  // 4. Pastikan schedule sudah terbuat
   if (!schedule_id && data.route_id && data.departure_date) {
-    // Cek apakah schedule sudah ada di tanggal tersebut yang belum dibatalkan
     const existingSchedule = await db('schedules')
       .where('route_id', data.route_id)
       .whereRaw('DATE(departure_time) = ?', [data.departure_date])
@@ -391,10 +383,8 @@ const createBooking = async (data) => {
     if (existingSchedule) {
       schedule_id = existingSchedule.id;
     } else {
-      // Bikin schedule baru on-the-fly, armada dialokasikan sistem
       const departureTime = new Date(data.departure_date);
       departureTime.setHours(8, 0, 0, 0); // Default jam 8 pagi
-      // Gunakan getAvailableFleets dari fleetAvailability
       const availableFleets = await getAvailableFleets(null, data.departure_date, data.departure_date);
 
       if (availableFleets.length === 0) {
@@ -403,9 +393,7 @@ const createBooking = async (data) => {
         throw error;
       }
 
-      const selectedFleet = availableFleets[0]; // Ambil armada pertama yang tersedia
-
-      // Cek apakah armada ini sudah memiliki jadwal khusus paket (route_id null) hari ini
+      const selectedFleet = availableFleets[0];
       const packageOnlySchedule = await db('schedules')
         .where('fleet_id', selectedFleet.id)
         .whereNull('route_id')
@@ -452,79 +440,105 @@ const createBooking = async (data) => {
     }
   }
 
-  let originalPrice = parseFloat(schedule.base_price);
-  if (isNaN(originalPrice)) originalPrice = 250000;
+  // Generate Booking Code tunggal untuk grup ini
+  const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const datePrefix = depDate.replace(/-/g, '').substring(2); // Yymmdd
+  const bookingCode = `TRV-${datePrefix}-${randomStr}`;
 
-  let finalPrice = originalPrice;
-  let appliedPromoId = data.promo_id || null;
-  let promoObj = null;
+  // 5. Simpan semua baris booking dalam sebuah Transaksi Database
+  const createdBookings = [];
+  await db.transaction(async (trx) => {
+    for (const passenger of passengers) {
+      // Pengecekan kursi kosong double check
+      const isAvailable = await trx('travel_bookings')
+        .where({ schedule_id, seat_number: passenger.seat_number })
+        .where(function () {
+          this.whereIn('booking_status', ['selesai', 'selesai_final', 'menunggu_konfirmasi', 'menunggu_penjemputan', 'dalam_penjemputan', 'dalam_perjalanan', 'dibayar'])
+            .orWhere(function () {
+              this.where('booking_status', 'menunggu_pembayaran')
+                .andWhere('locked_until', '>', db.fn.now());
+            });
+        }).first();
 
-  try {
-    let promoQuery = db('promotions').where('is_active', true);
-    if (appliedPromoId) {
-      promoQuery = promoQuery.andWhere('id', appliedPromoId);
-    }
-    const promo = await promoQuery.first();
-    if (promo) {
-      if (promo.target_service.includes('all') || promo.target_service.includes('travel')) {
-        appliedPromoId = promo.id;
-        promoObj = promo;
-        const discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
-        finalPrice = finalPrice - discount;
-      } else {
-        appliedPromoId = null;
+      if (isAvailable) {
+        throw new Error(`Kursi nomor ${passenger.seat_number} sudah dipesan atau dikunci oleh pengguna lain.`);
       }
+
+      let originalPrice = parseFloat(schedule.base_price);
+      if (isNaN(originalPrice)) originalPrice = 250000;
+
+      let finalPrice = originalPrice;
+      let appliedPromoId = data.promo_id || null;
+      let promoObj = null;
+
+      try {
+        let promoQuery = trx('promotions').where('is_active', true);
+        if (appliedPromoId) {
+          promoQuery = promoQuery.andWhere('id', appliedPromoId);
+        }
+        const promo = await promoQuery.first();
+        if (promo) {
+          if (promo.target_service.includes('all') || promo.target_service.includes('travel')) {
+            appliedPromoId = promo.id;
+            promoObj = promo;
+            const discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
+            finalPrice = finalPrice - discount;
+          } else {
+            appliedPromoId = null;
+          }
+        }
+      } catch (err) {
+        console.error("Error applying promo:", err);
+      }
+
+      let isBaggageCharge = false;
+      const weight = parseFloat(passenger.baggage_weight || 0);
+      if (weight >= 60.00 || passenger.baggage_dimension === 'super_besar') {
+        isBaggageCharge = true;
+        finalPrice += 250000.00;
+        originalPrice += 250000.00;
+      }
+
+      let finalBookingStatus = 'menunggu_konfirmasi';
+      if (data.tujuan_kecamatan && isJabodetabek(data.tujuan_kecamatan)) {
+        finalBookingStatus = 'menunggu_pembayaran';
+        originalPrice = 250000;
+        finalPrice = 250000;
+        if (isBaggageCharge) {
+          finalPrice += 250000;
+          originalPrice += 250000;
+        }
+        if (appliedPromoId && promoObj) {
+          const discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+          finalPrice = finalPrice - discount;
+        }
+      }
+
+      const [bookingRecord] = await trx('travel_bookings').insert({
+        user_id: data.user_id,
+        schedule_id: schedule_id,
+        seat_number: passenger.seat_number,
+        pickup_address: data.pickup_address,
+        dropoff_address: data.dropoff_address,
+        payment_method: data.payment_method || null,
+        baggage_description: passenger.baggage_description || null,
+        baggage_weight: passenger.baggage_weight || null,
+        baggage_dimension: passenger.baggage_dimension || null,
+        is_baggage_charge: isBaggageCharge,
+        booking_status: finalBookingStatus,
+        locked_until: db.raw("NOW() + INTERVAL '10 minutes'"),
+        price: finalPrice,
+        original_price: originalPrice,
+        promo_id: appliedPromoId,
+        booking_code: bookingCode,
+        passenger_name: passenger.passenger_name || 'Penumpang'
+      }).returning('*');
+
+      createdBookings.push(bookingRecord);
     }
-  } catch (err) {
-    console.error("Error applying promo:", err);
-  }
+  });
 
-  let isBaggageCharge = false;
-  if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
-    isBaggageCharge = true;
-    finalPrice += 250000.00; // Harga default charge, idealnya ini ambil dari config
-    originalPrice += 250000.00; // Tambahkan juga ke harga asli
-  }
-
-  let finalBookingStatus = 'menunggu_konfirmasi';
-  let isJab = false;
-  if (data.tujuan_kecamatan && isJabodetabek(data.tujuan_kecamatan)) {
-    isJab = true;
-    finalBookingStatus = 'menunggu_pembayaran';
-    originalPrice = 250000;
-
-    finalPrice = 250000;
-    if (isBaggageCharge) {
-      finalPrice += 250000;
-      originalPrice += 250000;
-    }
-
-    if (appliedPromoId && promoObj) {
-      // Re-apply discount if there was a promo
-      const discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
-      finalPrice = finalPrice - discount;
-    }
-  }
-
-  const [booking] = await db('travel_bookings').insert({
-    user_id: data.user_id,
-    schedule_id: schedule_id,
-    seat_number: data.seat_number,
-    pickup_address: data.pickup_address,
-    dropoff_address: data.dropoff_address,
-    payment_method: data.payment_method || null,
-    baggage_description: data.baggage_description || null,
-    baggage_weight: data.baggage_weight || null,
-    baggage_dimension: data.baggage_dimension || null,
-    is_baggage_charge: isBaggageCharge,
-    booking_status: finalBookingStatus, // Sesuai dengan alur locked 10 menit jika jabodetabek, else konfirmasi
-    locked_until: db.raw("NOW() + INTERVAL '10 minutes'"),
-    price: finalPrice,
-    original_price: originalPrice,
-    promo_id: appliedPromoId
-  }).returning('*');
-
-  return booking;
+  return createdBookings;
 };
 
 const getManifest = async (schedule_id) => {
@@ -554,6 +568,7 @@ const getTravelHistory = async (user_id) => {
       'travel_bookings.is_baggage_charge', 'travel_bookings.created_at',
       'travel_bookings.price', 'travel_bookings.original_price',
       'travel_bookings.payment_method', 'travel_bookings.payment_proof_url',
+      'travel_bookings.booking_code', 'travel_bookings.passenger_name',
       'routes.origin', 'routes.destination', 'schedules.departure_time',
       'schedules.status as schedule_status'
     )
@@ -563,23 +578,47 @@ const getTravelHistory = async (user_id) => {
 };
 
 const uploadPaymentProof = async (booking_id, user_id, file_url) => {
+  const booking = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  if (!booking) return null;
+
+  const updateData = {
+    payment_proof_url: file_url,
+    payment_method: 'cashless',
+    booking_status: 'menunggu_konfirmasi'
+  };
+
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update(updateData);
+      
+    return db('travel_bookings').where({ id: booking_id, user_id }).first();
+  }
+
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
     .whereIn('booking_status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
-    .update({
-      payment_proof_url: file_url,
-      payment_method: 'cashless',
-      booking_status: 'menunggu_konfirmasi'
-    })
+    .update(updateData)
     .returning('*');
   return updated;
 };
 
 const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
+  const booking = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  if (!booking) return null;
+
   const updateData = { payment_method };
   // Jika memilih cash, status diset ke menunggu_konfirmasi agar Admin memvalidasi
   if (payment_method === 'cash') {
     updateData.booking_status = 'menunggu_konfirmasi';
+  }
+
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update(updateData);
+      
+    return db('travel_bookings').where({ id: booking_id, user_id }).first();
   }
 
   const [updated] = await db('travel_bookings')
@@ -593,7 +632,7 @@ const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
 const cancelBooking = async (booking_id, user_id) => {
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .select('travel_bookings.booking_status', 'schedules.departure_time', 'schedules.id as schedule_id', 'schedules.fleet_id')
+    .select('travel_bookings.booking_status', 'travel_bookings.booking_code', 'schedules.departure_time', 'schedules.id as schedule_id', 'schedules.fleet_id')
     .where('travel_bookings.id', booking_id)
     .andWhere('travel_bookings.user_id', user_id)
     .first();
@@ -625,12 +664,25 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
 
-  const [deleted] = await db('travel_bookings')
-    .where({ id: booking_id, user_id })
-    .update({ booking_status: 'dibatalkan' })
-    .returning('*');
+  let updatedRows = 0;
+  let deleted = null;
 
-  if (deleted) {
+  if (booking.booking_code) {
+    updatedRows = await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update({ booking_status: 'dibatalkan' });
+      
+    deleted = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  } else {
+    const [del] = await db('travel_bookings')
+      .where({ id: booking_id, user_id })
+      .update({ booking_status: 'dibatalkan' })
+      .returning('*');
+    deleted = del;
+    updatedRows = deleted ? 1 : 0;
+  }
+
+  if (updatedRows > 0) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
     const activeBookings = await db('travel_bookings')
       .where('schedule_id', booking.schedule_id)
@@ -655,16 +707,25 @@ const cancelBooking = async (booking_id, user_id) => {
 const deleteBooking = async (booking_id, user_id) => {
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .select('schedules.id as schedule_id', 'schedules.fleet_id', 'schedules.departure_time')
+    .select('travel_bookings.booking_code', 'schedules.id as schedule_id', 'schedules.fleet_id', 'schedules.departure_time')
     .where('travel_bookings.id', booking_id)
     .where('travel_bookings.user_id', user_id)
     .first();
 
-  // Hanya bisa dihapus jika statusnya dibatalkan, ditolak, atau selesai
-  const updatedRows = await db('travel_bookings')
-    .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
-    .update({ is_hidden: true });
+  if (!booking) return false;
+
+  let updatedRows = 0;
+  if (booking.booking_code) {
+    updatedRows = await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
+      .update({ is_hidden: true });
+  } else {
+    updatedRows = await db('travel_bookings')
+      .where({ id: booking_id, user_id })
+      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
+      .update({ is_hidden: true });
+  }
 
   if (updatedRows > 0 && booking) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi

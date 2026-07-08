@@ -93,6 +93,8 @@ const getTravelBookings = async () => {
       'travel_bookings.eta',
       'travel_bookings.payment_method',
       'travel_bookings.schedule_id',
+      'travel_bookings.booking_code',
+      'travel_bookings.passenger_name',
       'users.name as customer_name',
       'users.phone_number as customer_phone',
       'routes.origin',
@@ -132,6 +134,14 @@ const verifyTravelBooking = async (booking_id) => {
     return null;
   }
 
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where('booking_code', booking.booking_code)
+      .update(updatePayload);
+      
+    return db('travel_bookings').where('id', booking_id).first();
+  }
+
   const [updated] = await db('travel_bookings')
     .where('id', booking_id)
     .update(updatePayload)
@@ -153,6 +163,30 @@ const updateTravelBookingStatus = async (booking_id, payload) => {
     } else if (updatePayload.booking_status === 'selesai' || updatePayload.booking_status === 'ditolak' || updatePayload.booking_status === 'dibatalkan') {
       updatePayload.locked_until = null;
     }
+  }
+
+  if (booking.booking_code) {
+    // FIX: Admin memasukkan TOTAL harga untuk seluruh grup.
+    // Kita harus membaginya per-kursi sebelum ditulis ke tiap baris,
+    // agar ketika frontend menjumlahkan kembali, hasilnya = total yang admin tentukan.
+    if (updatePayload.price !== undefined) {
+      const groupCountResult = await db('travel_bookings')
+        .where('booking_code', booking.booking_code)
+        .count('id as count')
+        .first();
+      const seatCount = parseInt(groupCountResult.count, 10) || 1;
+      const pricePerSeat = Math.round(updatePayload.price / seatCount);
+      updatePayload.price = pricePerSeat;
+      // Samakan original_price dengan price yang di-set admin agar tidak
+      // menampilkan diskon palsu di sisi customer.
+      updatePayload.original_price = pricePerSeat;
+    }
+
+    await db('travel_bookings')
+      .where('booking_code', booking.booking_code)
+      .update(updatePayload);
+      
+    return db('travel_bookings').where('id', booking_id).first();
   }
 
   const [updated] = await db('travel_bookings')
