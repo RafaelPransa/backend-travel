@@ -93,6 +93,8 @@ const getTravelBookings = async () => {
       'travel_bookings.eta',
       'travel_bookings.payment_method',
       'travel_bookings.schedule_id',
+      'travel_bookings.booking_code',
+      'travel_bookings.passenger_name',
       'users.name as customer_name',
       'users.phone_number as customer_phone',
       'routes.origin',

@@ -568,6 +568,7 @@ const getTravelHistory = async (user_id) => {
       'travel_bookings.is_baggage_charge', 'travel_bookings.created_at',
       'travel_bookings.price', 'travel_bookings.original_price',
       'travel_bookings.payment_method', 'travel_bookings.payment_proof_url',
+      'travel_bookings.booking_code', 'travel_bookings.passenger_name',
       'routes.origin', 'routes.destination', 'schedules.departure_time',
       'schedules.status as schedule_status'
     )
