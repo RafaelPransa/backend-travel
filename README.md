@@ -30,6 +30,29 @@ Aplikasi ini mengadopsi kontrol akses berbasis peran (RBAC) yang ketat untuk men
 
 ---
 
+## ⚡ Perubahan Terbaru & Refactoring (Juni & Juli 2026)
+
+Untuk meningkatkan kualitas User Experience (UX) dan efisiensi operasional sistem, telah dilakukan refactoring besar terkait penanganan pemesanan multi-kursi (**Group Booking**):
+
+### 1. Konsolidasi Riwayat Pesanan Customer (UX Improvement)
+* **Sebelumnya**: Ketika customer memesan beberapa kursi sekaligus, riwayat pemesanan terpecah menjadi item tiket individual. Pembayaran harus dilakukan satu per satu.
+* **Perbaikan**: Seluruh kursi dalam satu transaksi kini dikelompokkan berdasarkan `booking_code` yang sama. Customer dapat melakukan pembayaran gabungan sekaligus (cukup satu kali klik untuk seluruh rombongan).
+
+### 2. Group Verification & Pricing di Panel Admin
+* **Sebelumnya**: Admin harus memverifikasi pembayaran dan menetapkan harga secara manual per-tiket individual.
+* **Perbaikan**:
+  * **Verifikasi Cepat**: Cukup verifikasi satu tiket dalam grup, seluruh tiket dalam grup otomatis terverifikasi lunas.
+  * **Pemberian Harga Total**: Ketika admin menetapkan harga pada grup booking, nominal tersebut dihitung sebagai **harga total untuk seluruh kursi** dalam grup. Backend secara otomatis membagi nominal tersebut secara merata ke masing-masing kursi (`total_price / jumlah_kursi`) untuk menghindari bug harga berlipat ganda (*price doubling*).
+
+### 3. Tampilan Terpadu di Halaman Supir (Driver Manifest)
+* **Sebelumnya**: Tugas perjalanan supir menampilkan satu kartu per-kursi penumpang, memecah rombongan grup yang sama dan membingungkan penugasan.
+* **Perbaikan**:
+  * Penumpang dengan `booking_code` sama otomatis **digabungkan dalam satu kartu tugas**.
+  * Kartu menampilkan nomor kursi gabungan (contoh: `Kursi 2, 3`), manifest nama semua anggota grup, dan total harga rombongan.
+  * Ketika supir memperbarui status penjemputan/perjalanan, status untuk **seluruh kursi dalam grup tersebut otomatis ter-update secara bersamaan**.
+
+---
+
 ## 🛠️ Arsitektur & Struktur File
 
 Backend ini mengimplementasikan arsitektur **Modular Component-based** untuk memisahkan tanggung jawab (Separation of Concerns):
