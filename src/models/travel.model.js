@@ -46,8 +46,6 @@ const calculateLoad = async (route_id, dateString) => {
       used_seats += 1;
       occupied_seats_list.push(b.seat_number);
       if (b.baggage_weight >= 60 || b.baggage_dimension === 'super_besar') {
-        extraSeatsCount += 2;
-      } else if (b.baggage_weight >= 30 || b.baggage_dimension === 'besar') {
         extraSeatsCount += 1;
       }
     });
@@ -293,8 +291,6 @@ const createBooking = async (data) => {
 
   let extraSeatsCount = 0;
   if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
-    extraSeatsCount = 2;
-  } else if (data.baggage_weight >= 30.00 || data.baggage_dimension === 'besar') {
     extraSeatsCount = 1;
   }
 
