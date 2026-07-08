@@ -36,7 +36,7 @@ const calculateLoad = async (route_id, dateString) => {
     const travelBookings = await db('travel_bookings')
       .where('schedule_id', schedule.id)
       .where(function () {
-        this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
+        this.whereIn('booking_status', ['selesai', 'selesai_final', 'menunggu_konfirmasi', 'menunggu_penjemputan', 'dalam_penjemputan', 'dalam_perjalanan', 'dibayar'])
           .orWhere(function () {
             this.where('booking_status', 'menunggu_pembayaran')
               .andWhere('locked_until', '>', db.fn.now());
@@ -246,7 +246,7 @@ const getSchedules = async ({ date, origin, destination }) => {
   const bookings = await db('travel_bookings')
     .whereIn('schedule_id', scheduleIds)
     .where(function () {
-      this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
+      this.whereIn('booking_status', ['selesai', 'selesai_final', 'menunggu_konfirmasi', 'menunggu_penjemputan', 'dalam_penjemputan', 'dalam_perjalanan', 'dibayar'])
         .orWhere(function () {
           this.where('booking_status', 'menunggu_pembayaran')
             .andWhere('locked_until', '>', db.fn.now());
@@ -269,7 +269,7 @@ const checkSeatAvailability = async (schedule_id, seat_number) => {
   const existingBooking = await db('travel_bookings')
     .where({ schedule_id, seat_number })
     .where(function () {
-      this.whereIn('booking_status', ['selesai', 'menunggu_konfirmasi', 'dalam_penjemputan', 'dibayar'])
+      this.whereIn('booking_status', ['selesai', 'selesai_final', 'menunggu_konfirmasi', 'menunggu_penjemputan', 'dalam_penjemputan', 'dalam_perjalanan', 'dibayar'])
         .orWhere(function () {
           this.where('booking_status', 'menunggu_pembayaran')
             .andWhere('locked_until', '>', db.fn.now());
