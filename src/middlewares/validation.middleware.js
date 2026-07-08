@@ -53,14 +53,33 @@ const travelBookingSchema = z.object({
   schedule_id: z.string().uuid('Format schedule_id tidak valid').optional(),
   route_id: z.string().uuid('Format route_id tidak valid').optional(),
   departure_date: z.string().optional(),
-  seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
   pickup_address: z.string().min(10, 'Alamat penjemputan wajib diisi lengkap (minimal 10 karakter)'),
   dropoff_address: z.string().min(10, 'Alamat tujuan wajib diisi lengkap (minimal 10 karakter)'),
-  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional(),
+  payment_method: z.enum(['cash', 'cashless'], { errorMap: () => ({ message: "Pilihan metode pembayaran hanya 'cash' atau 'cashless'" }) }).optional().nullable(),
+  tujuan_kecamatan: z.string().optional().nullable(),
+  promo_id: z.string().uuid('Format promo_id tidak valid').optional().nullable(),
+  
+  // Single booking (backward compatibility)
+  seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif').optional(),
   baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional(),
   baggage_weight: z.coerce.number().positive('Berat bagasi harus bernilai positif').optional(),
   baggage_dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi bagasi tidak valid (kecil, sedang, besar, super_besar)" }) }).optional(),
-  promo_id: z.string().uuid('Format promo_id tidak valid').optional()
+
+  // Group booking (multi-passengers)
+  passengers: z.array(
+    z.object({
+      seat_number: z.number().int().positive('Nomor kursi harus berupa angka positif'),
+      passenger_name: z.string().min(1, 'Nama penumpang harus diisi').max(100),
+      baggage_description: z.string().max(500, 'Deskripsi bagasi maksimal 500 karakter').optional().nullable(),
+      baggage_weight: z.coerce.number().positive('Berat bagasi harus bernilai positif').optional().nullable(),
+      baggage_dimension: z.enum(['kecil', 'sedang', 'besar', 'super_besar'], { errorMap: () => ({ message: "Pilihan dimensi bagasi tidak valid" }) }).optional().nullable()
+    })
+  ).max(4, 'Maksimal pemesanan adalah 4 kursi').optional()
+}).refine(data => {
+  return data.passengers || data.seat_number;
+}, {
+  message: 'Harap sertakan data passengers atau seat_number',
+  path: ['passengers']
 });
 
 // Schema untuk Request Charter Pariwisata

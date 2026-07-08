@@ -59,8 +59,50 @@ const getSchedules = async (req, res) => {
 
 const createBooking = async (req, res) => {
   try {
-    const { schedule_id, route_id, departure_date, seat_number, pickup_address, dropoff_address, payment_method, baggage_description, baggage_weight, baggage_dimension, promo_id, tujuan_kecamatan } = req.body;
+    const { 
+      schedule_id, 
+      route_id, 
+      departure_date, 
+      pickup_address, 
+      dropoff_address, 
+      payment_method, 
+      promo_id, 
+      tujuan_kecamatan,
+      passengers,
+      // Backward compatibility fields
+      seat_number,
+      baggage_description,
+      baggage_weight,
+      baggage_dimension
+    } = req.body;
     const user_id = req.user.id;
+
+    // Resolve passengers list (backward-compatible)
+    let passengersArray = passengers;
+    if (!passengersArray && seat_number) {
+      passengersArray = [{
+        seat_number,
+        passenger_name: req.user.name || 'Penumpang Utama',
+        baggage_description,
+        baggage_weight,
+        baggage_dimension
+      }];
+    }
+
+    if (!passengersArray || passengersArray.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Data penumpang tidak boleh kosong'
+      });
+    }
+
+    // Limit maximum seats per booking to 4
+    if (passengersArray.length > 4) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Maksimal pemesanan dalam satu transaksi adalah 4 kursi.'
+      });
+    }
 
     // Untuk booking baru bisa jadi belum ada schedule_id
     if (!schedule_id && (!route_id || !departure_date)) {
@@ -71,13 +113,15 @@ const createBooking = async (req, res) => {
     }
 
     if (schedule_id) {
-        const isAvailable = await TravelModel.checkSeatAvailability(schedule_id, seat_number);
+      for (const passenger of passengersArray) {
+        const isAvailable = await TravelModel.checkSeatAvailability(schedule_id, passenger.seat_number);
         if (!isAvailable) {
           return res.status(400).json({
             status: 'error',
-            message: 'Kursi sudah dipesan atau sedang dikunci (menunggu pembayaran) oleh pengguna lain'
+            message: `Kursi nomor ${passenger.seat_number} sudah dipesan atau sedang dikunci oleh pengguna lain`
           });
         }
+      }
     }
 
     const newBooking = await TravelModel.createBooking({
@@ -85,15 +129,12 @@ const createBooking = async (req, res) => {
       schedule_id,
       route_id,
       departure_date,
-      seat_number,
       pickup_address,
       dropoff_address,
       payment_method,
-      baggage_description,
-      baggage_weight,
-      baggage_dimension,
       promo_id,
-      tujuan_kecamatan
+      tujuan_kecamatan,
+      passengers: passengersArray
     });
 
     return res.status(201).json({
