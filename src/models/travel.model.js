@@ -29,6 +29,7 @@ const calculateLoad = async (route_id, dateString) => {
   }
 
   let extraSeatsCount = 0;
+  let passenger_seats_count = 0;
 
   if (schedule) {
     // 1. Hitung beban dari Travel Reguler
@@ -49,6 +50,7 @@ const calculateLoad = async (route_id, dateString) => {
         extraSeatsCount += 1;
       }
     });
+    passenger_seats_count = travelBookings.length + extraSeatsCount;
   }
 
   used_seats += extraSeatsCount;
@@ -69,7 +71,10 @@ const calculateLoad = async (route_id, dateString) => {
 
   const packages = await packagesQuery;
 
+  let total_package_weight = 0;
   packages.forEach(p => {
+    total_package_weight += parseFloat(p.weight || 0);
+
     let seats = [];
     try {
       seats = typeof p.seat_numbers === 'string' ? JSON.parse(p.seat_numbers) : (p.seat_numbers || []);
@@ -134,7 +139,18 @@ const calculateLoad = async (route_id, dateString) => {
     }
   }
 
-  let status = used_seats >= max_capacity ? 'full' : 'available';
+  // Dapatkan armada terhubung untuk mendapatkan max_payload
+  let active_fleet = null;
+  if (schedule && schedule.fleet_id) {
+    active_fleet = await db('fleets').where('id', schedule.fleet_id).first();
+  } else if (availableFleets.length > 0) {
+    const singleFleet = availableFleets.find(f => f.seat_capacity >= used_seats);
+    active_fleet = singleFleet || availableFleets[availableFleets.length - 1];
+  }
+  const max_payload = active_fleet ? active_fleet.max_payload : 1450;
+  const total_weight = (passenger_seats_count * 110) + total_package_weight;
+
+  let status = (used_seats >= max_capacity || total_weight >= max_payload) ? 'full' : 'available';
 
   // FIX: Jika jadwal sudah ditugaskan ke supir dan statusnya sedang bertugas/berangkat,
   // paksa status menjadi 'full' agar tidak muncul di pilihan ketersediaan jadwal.
@@ -152,7 +168,9 @@ const calculateLoad = async (route_id, dateString) => {
     max_capacity,
     used_seats,
     occupied_seats_list,
-    schedule_id: schedule ? schedule.id : null
+    schedule_id: schedule ? schedule.id : null,
+    total_weight,
+    max_payload
   };
 };
 
@@ -289,14 +307,37 @@ const createBooking = async (data) => {
     if (s) target_route_id = s.route_id;
   }
 
+  let depDate = data.departure_date;
+  if (!depDate && schedule_id) {
+    const s = await db('schedules').where('id', schedule_id).first();
+    if (s) {
+      const d = new Date(s.departure_time);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      depDate = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
   let extraSeatsCount = 0;
   if (data.baggage_weight >= 60.00 || data.baggage_dimension === 'super_besar') {
     extraSeatsCount = 1;
   }
 
+  // Cek batas beban (payload) armada
+  if (target_route_id && depDate) {
+    const loadInfo = await calculateLoad(target_route_id, depDate);
+    const additionalWeight = (1 + extraSeatsCount) * 110;
+    if (loadInfo.max_payload > 0 && (loadInfo.total_weight + additionalWeight) > loadInfo.max_payload) {
+      const error = new Error(`Beban armada sudah penuh pada tanggal tersebut. Sisa kapasitas kargo tidak mencukupi.`);
+      error.code = 'EXCEED_MAX_PAYLOAD';
+      throw error;
+    }
+  }
+
   if (extraSeatsCount > 0) {
     // Pastikan sisa kursi cukup untuk penumpang + barang bawaan (karena booking belum masuk DB)
-    const loadInfo = await calculateLoad(target_route_id, data.departure_date, schedule_id);
+    const loadInfo = await calculateLoad(target_route_id, depDate);
     if (loadInfo.sisa_kursi < extraSeatsCount + 1) {
       // Cari tanggal terdekat dalam 7 hari ke depan
       let nextAvailableDate = null;

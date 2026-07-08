@@ -129,7 +129,7 @@ const createShipment = async (req, res) => {
 
       for (const sched of schedules) {
         const loadInfo = await TravelModel.calculateLoad(sched.route_id, departure_date);
-        if (loadInfo.sisa_kursi >= requiredSeats) {
+        if (loadInfo.sisa_kursi >= requiredSeats && (loadInfo.total_weight + parseFloat(weight)) <= loadInfo.max_payload) {
           isAvailable = true;
           assignedFleetId = sched.fleet_id;
           
@@ -152,13 +152,24 @@ const createShipment = async (req, res) => {
         
         for (const idle of idleFleets) {
           if (idle.seat_capacity >= requiredSeats) {
-            isAvailable = true;
-            assignedFleetId = idle.id;
-            // Assign seats from the back
-            for (let i = idle.seat_capacity; i > idle.seat_capacity - requiredSeats; i--) {
-              assignedSeatNumbers.push(i);
+            // Cek batas payload kargo untuk armada idle ini
+            const activePackagesWeight = await db('package_shipments')
+              .where('fleet_id', idle.id)
+              .where('departure_date', departure_date)
+              .whereNotIn('status', ['delivered', 'dibatalkan', 'ditolak'])
+              .sum('weight as total_weight')
+              .first();
+            const currentWeight = parseFloat(activePackagesWeight.total_weight || 0);
+
+            if (currentWeight + parseFloat(weight) <= idle.max_payload) {
+              isAvailable = true;
+              assignedFleetId = idle.id;
+              // Assign seats from the back
+              for (let i = idle.seat_capacity; i > idle.seat_capacity - requiredSeats; i--) {
+                assignedSeatNumbers.push(i);
+              }
+              break;
             }
-            break;
           }
         }
       }

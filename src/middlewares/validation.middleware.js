@@ -112,7 +112,8 @@ const adminValidationSchemas = {
     status: z.enum(['active', 'maintenance']).optional(),
     price: z.coerce.number().nonnegative().optional(),
     description: z.string().optional(),
-    image_url: z.string().optional()
+    image_url: z.string().optional(),
+    max_payload: z.coerce.number().int().positive().optional()
   }),
   route: z.object({
     origin: z.string().min(1),
