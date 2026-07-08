@@ -43,6 +43,11 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
         'travel_bookings.schedule_id',
         'travel_bookings.seat_number',
         'travel_bookings.price',
+        'travel_bookings.booking_code',
+        'travel_bookings.passenger_name as ticket_passenger_name',
+        'travel_bookings.baggage_weight',
+        'travel_bookings.baggage_dimension',
+        'travel_bookings.is_baggage_charge',
         'users.name as passenger_name',
         'users.phone_number as passenger_phone',
         'travel_bookings.booking_status',
@@ -63,13 +68,19 @@ const getAssignedSchedules = async (driver_id, is_history = false) => {
       }
       passengerMap[passenger.schedule_id].push({
         booking_id: passenger.booking_id,
+        schedule_id: passenger.schedule_id,
         seat_number: passenger.seat_number,
+        price: passenger.price,
+        booking_code: passenger.booking_code,
+        ticket_passenger_name: passenger.ticket_passenger_name,
+        baggage_weight: passenger.baggage_weight,
+        baggage_dimension: passenger.baggage_dimension,
+        is_baggage_charge: passenger.is_baggage_charge,
         passenger_name: passenger.passenger_name,
         passenger_phone: passenger.passenger_phone,
         booking_status: passenger.booking_status,
         payment_method: passenger.payment_method,
         payment_proof_url: passenger.payment_proof_url,
-        price: passenger.price,
         pickup_address: passenger.pickup_address,
         dropoff_address: passenger.dropoff_address
       });
@@ -246,7 +257,7 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status, 
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
     .where('travel_bookings.id', booking_id)
     .where('schedules.driver_id', driver_id)
-    .select('travel_bookings.id')
+    .select('travel_bookings.id', 'travel_bookings.booking_code')
     .first();
 
   if (!booking) {
@@ -256,6 +267,15 @@ const updateTravelBookingStatus = async (booking_id, driver_id, booking_status, 
   const updateData = { booking_status };
   if (payment_proof_url) {
     updateData.payment_proof_url = payment_proof_url;
+  }
+
+  // Jika booking adalah bagian dari grup (memiliki booking_code),
+  // update semua kursi dalam grup sekaligus agar status konsisten.
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where('booking_code', booking.booking_code)
+      .update(updateData);
+    return db('travel_bookings').where('id', booking_id).first();
   }
 
   const [updated] = await db('travel_bookings')
