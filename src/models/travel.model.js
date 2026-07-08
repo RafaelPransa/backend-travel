@@ -577,23 +577,47 @@ const getTravelHistory = async (user_id) => {
 };
 
 const uploadPaymentProof = async (booking_id, user_id, file_url) => {
+  const booking = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  if (!booking) return null;
+
+  const updateData = {
+    payment_proof_url: file_url,
+    payment_method: 'cashless',
+    booking_status: 'menunggu_konfirmasi'
+  };
+
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update(updateData);
+      
+    return db('travel_bookings').where({ id: booking_id, user_id }).first();
+  }
+
   const [updated] = await db('travel_bookings')
     .where({ id: booking_id, user_id })
     .whereIn('booking_status', ['menunggu_pembayaran', 'menunggu_konfirmasi'])
-    .update({
-      payment_proof_url: file_url,
-      payment_method: 'cashless',
-      booking_status: 'menunggu_konfirmasi'
-    })
+    .update(updateData)
     .returning('*');
   return updated;
 };
 
 const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
+  const booking = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  if (!booking) return null;
+
   const updateData = { payment_method };
   // Jika memilih cash, status diset ke menunggu_konfirmasi agar Admin memvalidasi
   if (payment_method === 'cash') {
     updateData.booking_status = 'menunggu_konfirmasi';
+  }
+
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update(updateData);
+      
+    return db('travel_bookings').where({ id: booking_id, user_id }).first();
   }
 
   const [updated] = await db('travel_bookings')
@@ -607,7 +631,7 @@ const updatePaymentMethod = async (booking_id, user_id, payment_method) => {
 const cancelBooking = async (booking_id, user_id) => {
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .select('travel_bookings.booking_status', 'schedules.departure_time', 'schedules.id as schedule_id', 'schedules.fleet_id')
+    .select('travel_bookings.booking_status', 'travel_bookings.booking_code', 'schedules.departure_time', 'schedules.id as schedule_id', 'schedules.fleet_id')
     .where('travel_bookings.id', booking_id)
     .andWhere('travel_bookings.user_id', user_id)
     .first();
@@ -639,12 +663,25 @@ const cancelBooking = async (booking_id, user_id) => {
     }
   }
 
-  const [deleted] = await db('travel_bookings')
-    .where({ id: booking_id, user_id })
-    .update({ booking_status: 'dibatalkan' })
-    .returning('*');
+  let updatedRows = 0;
+  let deleted = null;
 
-  if (deleted) {
+  if (booking.booking_code) {
+    updatedRows = await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .update({ booking_status: 'dibatalkan' });
+      
+    deleted = await db('travel_bookings').where({ id: booking_id, user_id }).first();
+  } else {
+    const [del] = await db('travel_bookings')
+      .where({ id: booking_id, user_id })
+      .update({ booking_status: 'dibatalkan' })
+      .returning('*');
+    deleted = del;
+    updatedRows = deleted ? 1 : 0;
+  }
+
+  if (updatedRows > 0) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi
     const activeBookings = await db('travel_bookings')
       .where('schedule_id', booking.schedule_id)
@@ -669,16 +706,25 @@ const cancelBooking = async (booking_id, user_id) => {
 const deleteBooking = async (booking_id, user_id) => {
   const booking = await db('travel_bookings')
     .join('schedules', 'travel_bookings.schedule_id', 'schedules.id')
-    .select('schedules.id as schedule_id', 'schedules.fleet_id', 'schedules.departure_time')
+    .select('travel_bookings.booking_code', 'schedules.id as schedule_id', 'schedules.fleet_id', 'schedules.departure_time')
     .where('travel_bookings.id', booking_id)
     .where('travel_bookings.user_id', user_id)
     .first();
 
-  // Hanya bisa dihapus jika statusnya dibatalkan, ditolak, atau selesai
-  const updatedRows = await db('travel_bookings')
-    .where({ id: booking_id, user_id })
-    .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
-    .update({ is_hidden: true });
+  if (!booking) return false;
+
+  let updatedRows = 0;
+  if (booking.booking_code) {
+    updatedRows = await db('travel_bookings')
+      .where({ booking_code: booking.booking_code, user_id })
+      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
+      .update({ is_hidden: true });
+  } else {
+    updatedRows = await db('travel_bookings')
+      .where({ id: booking_id, user_id })
+      .whereIn('booking_status', ['dibatalkan', 'ditolak', 'REJECTED', 'selesai', 'COMPLETED'])
+      .update({ is_hidden: true });
+  }
 
   if (updatedRows > 0 && booking) {
     // Auto-cleanup schedule jika tidak ada penumpang aktif lagi

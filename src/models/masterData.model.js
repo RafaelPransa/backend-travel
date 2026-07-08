@@ -132,6 +132,14 @@ const verifyTravelBooking = async (booking_id) => {
     return null;
   }
 
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where('booking_code', booking.booking_code)
+      .update(updatePayload);
+      
+    return db('travel_bookings').where('id', booking_id).first();
+  }
+
   const [updated] = await db('travel_bookings')
     .where('id', booking_id)
     .update(updatePayload)
@@ -153,6 +161,14 @@ const updateTravelBookingStatus = async (booking_id, payload) => {
     } else if (updatePayload.booking_status === 'selesai' || updatePayload.booking_status === 'ditolak' || updatePayload.booking_status === 'dibatalkan') {
       updatePayload.locked_until = null;
     }
+  }
+
+  if (booking.booking_code) {
+    await db('travel_bookings')
+      .where('booking_code', booking.booking_code)
+      .update(updatePayload);
+      
+    return db('travel_bookings').where('id', booking_id).first();
   }
 
   const [updated] = await db('travel_bookings')
