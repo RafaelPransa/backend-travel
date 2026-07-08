@@ -78,7 +78,97 @@ const { uploadPayment } = require('../middlewares/upload.middleware');
  *                         type: integer
  *                         example: 5
  */
+/**
+ * @openapi
+ * /api/travel/schedules/availability:
+ *   get:
+ *     summary: Cek Ketersediaan Jadwal Keberangkatan Dinamis
+ *     description: Mengambil seluruh tanggal keberangkatan aktif yang masih memiliki kursi atau armada tersedia untuk rute tertentu.
+ *     tags:
+ *       - Travel Regular Service
+ *     parameters:
+ *       - in: query
+ *         name: route_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Rute Perjalanan
+ *     responses:
+ *       200:
+ *         description: Berhasil mendapatkan daftar tanggal keberangkatan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     format: date
+ *                     example: "2026-07-11"
+ */
 router.get('/schedules/availability', travelController.getSchedulesAvailability);
+
+/**
+ * @openapi
+ * /api/travel/seats:
+ *   get:
+ *     summary: Mendapatkan Okupansi Kursi Perjalanan
+ *     description: Mengambil nomor kursi yang sudah dipesan/dikunci pada jadwal keberangkatan tertentu.
+ *     tags:
+ *       - Travel Regular Service
+ *     parameters:
+ *       - in: query
+ *         name: schedule_id
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Jadwal Perjalanan
+ *       - in: query
+ *         name: route_id
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Rute (jika schedule_id tidak disertakan)
+ *       - in: query
+ *         name: departure_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Tanggal Keberangkatan YYYY-MM-DD (jika schedule_id tidak disertakan)
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data okupansi kursi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     occupied_seats:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [1, 3]
+ *                     locked_seats:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [2]
+ *                     capacity:
+ *                       type: integer
+ *                       example: 6
+ */
 router.get('/seats', travelController.getSeatsOccupancy);
 router.get('/schedules', travelController.getSchedules);
 

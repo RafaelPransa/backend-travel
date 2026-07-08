@@ -242,9 +242,122 @@ router.put('/shipments/:id/status', authenticate, authorize('driver', 'super_adm
  */
 router.get('/history', authenticate, authorize('customer'), packageController.getPackageHistory);
 
-// Supaya endpoint frontend konsisten: /api/package/bookings/:id/cancel
+/**
+ * @openapi
+ * /api/packages/bookings/{id}/cancel:
+ *   put:
+ *     summary: Batalkan Pengiriman Paket
+ *     description: Membatalkan pengiriman paket yang belum diproses oleh kurir/supir.
+ *     tags:
+ *       - Package Shipment (Kurir) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Pengiriman Paket
+ *     responses:
+ *       200:
+ *         description: Pengiriman paket berhasil dibatalkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Pengiriman paket berhasil dibatalkan
+ */
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), packageController.cancelBooking);
+
+/**
+ * @openapi
+ * /api/packages/bookings/{id}:
+ *   delete:
+ *     summary: Hapus/Arsipkan Riwayat Paket
+ *     description: Menyembunyikan riwayat transaksi pengiriman paket dari dashboard customer (soft-delete/hide).
+ *     tags:
+ *       - Package Shipment (Kurir) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Pengiriman Paket
+ *     responses:
+ *       200:
+ *         description: Riwayat paket berhasil dihapus/diarsipkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Riwayat pengiriman berhasil disembunyikan
+ */
 router.delete('/bookings/:id', authenticate, authorize('customer'), packageController.deleteBooking);
+
+/**
+ * @openapi
+ * /api/packages/bookings/{id}/payment-method:
+ *   put:
+ *     summary: Mengubah Metode Pembayaran Paket
+ *     description: Mengubah metode pembayaran paket (misal dari cashless ke cash) sebelum dikonfirmasi oleh admin.
+ *     tags:
+ *       - Package Shipment (Kurir) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Pengiriman Paket
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - payment_method
+ *             properties:
+ *               payment_method:
+ *                 type: string
+ *                 enum: [cash, cashless]
+ *                 example: cash
+ *     responses:
+ *       200:
+ *         description: Metode pembayaran berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Metode pembayaran berhasil diperbarui
+ */
 router.put('/bookings/:id/payment-method', authenticate, authorize('customer'), packageController.updatePaymentMethod);
 
 /**

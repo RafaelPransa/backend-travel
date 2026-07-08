@@ -236,8 +236,74 @@ router.put('/:id/verify', authenticate, authorize('super_admin'), validate(admin
  */
 router.put('/request/:id/payment-method', authenticate, authorize('customer'), charterController.updatePaymentMethod);
 
-// Supaya endpoint frontend konsisten: /api/charter/bookings/:id/cancel
+/**
+ * @openapi
+ * /api/charter/bookings/{id}/cancel:
+ *   put:
+ *     summary: Batalkan Pengajuan Charter
+ *     description: Membatalkan pengajuan sewa pariwisata (charter) sebelum dikonfirmasi/diverifikasi admin.
+ *     tags:
+ *       - Charter (Pariwisata) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Pemesanan Charter
+ *     responses:
+ *       200:
+ *         description: Pemesanan charter berhasil dibatalkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Pemesanan charter berhasil dibatalkan
+ */
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), charterController.cancelBooking);
+
+/**
+ * @openapi
+ * /api/charter/bookings/{id}:
+ *   delete:
+ *     summary: Hapus/Arsipkan Riwayat Charter
+ *     description: Menyembunyikan riwayat sewa charter dari dashboard customer (soft-delete/hide).
+ *     tags:
+ *       - Charter (Pariwisata) Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID Pemesanan Charter
+ *     responses:
+ *       200:
+ *         description: Riwayat charter berhasil dihapus/diarsipkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Riwayat sewa berhasil disembunyikan
+ */
 router.delete('/bookings/:id', authenticate, authorize('customer'), charterController.deleteBooking);
 
 module.exports = router;

@@ -121,6 +121,50 @@ router.get('/metrics', dashboardController.getDashboardMetrics);
  */
 router.get('/active-duties', dashboardController.getActiveDuties);
 
+/**
+ * @openapi
+ * /api/admin/dashboard/recent-bookings:
+ *   get:
+ *     summary: Mendapatkan Riwayat Pemesanan Terbaru (Super Admin)
+ *     description: Mengambil daftar pemesakan travel, charter, dan paket yang terbaru masuk untuk ditampilkan di widget dashboard utama.
+ *     tags:
+ *       - Admin Dashboard Area
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil daftar pemesanan terbaru
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         example: TRAVEL
+ *                       customer_name:
+ *                         type: string
+ *                         example: "Rafael Pransa"
+ *                       date:
+ *                         type: string
+ *                         format: date-time
+ *                       price:
+ *                         type: string
+ *                         example: "250000.00"
+ *                       status:
+ *                         type: string
+ *                         example: dibayar
+ */
 router.get('/recent-bookings', dashboardController.getRecentBookings);
 
 module.exports = router;

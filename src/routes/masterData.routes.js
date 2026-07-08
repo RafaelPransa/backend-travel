@@ -886,13 +886,79 @@ crudRoute('/charter-bookings', 'charter_bookings');
 // Fitur Spesifik: Assign Schedule (Menugaskan Driver & Mobil)
 router.put('/schedules/:id/assign', masterController.assignSchedule);
 
-// Fitur Spesifik: Konfirmasi Keberangkatan Massal
+/**
+ * @openapi
+ * /api/admin/master/schedules/{id}/depart:
+ *   put:
+ *     summary: Berangkatkan Jadwal Perjalanan (Super Admin)
+ *     description: Mengubah status jadwal perjalanan secara paksa menjadi 'departed' dan status seluruh tiket penumpang/paket di dalamnya menjadi 'dalam_penjemputan'.
+ *     tags:
+ *       - Admin Master Schedules
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Schedule ID (UUID)
+ *     responses:
+ *       200:
+ *         description: Jadwal perjalanan berhasil diberangkatkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Perjalanan berhasil diberangkatkan
+ */
 router.put('/schedules/:id/depart', masterController.departSchedule);
 
 // Fitur Spesifik: Verifikasi & Kelola Tiket Travel Reguler
 router.get('/travel-bookings', masterController.getTravelBookings);
 router.put('/travel-bookings/:id/verify', masterController.verifyTravelBooking);
 router.put('/travel-bookings/:id/status', masterController.updateTravelBookingStatus);
+
+/**
+ * @openapi
+ * /api/admin/master/travel-bookings/{id}:
+ *   delete:
+ *     summary: Hapus Pemesanan Tiket Travel (Super Admin)
+ *     description: Menghapus secara permanen record pemesanan tiket travel dari database.
+ *     tags:
+ *       - Admin Master Travel Bookings
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Booking ID (UUID)
+ *     responses:
+ *       200:
+ *         description: Pemesanan tiket travel berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Pesanan tiket travel berhasil dihapus
+ */
 router.delete('/travel-bookings/:id', masterController.deleteTravelBooking);
 
 module.exports = router;
