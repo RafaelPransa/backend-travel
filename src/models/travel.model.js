@@ -445,7 +445,33 @@ const createBooking = async (data) => {
   const datePrefix = depDate.replace(/-/g, '').substring(2); // Yymmdd
   const bookingCode = `TRV-${datePrefix}-${randomStr}`;
 
-  // 5. Simpan semua baris booking dalam sebuah Transaksi Database
+  // 5. Query active promotion once outside the loop
+  let appliedPromoId = data.promo_id || null;
+  let promoObj = null;
+  try {
+    let promoQuery = db('promotions').where('is_active', true);
+    if (appliedPromoId) {
+      promoQuery = promoQuery.andWhere('id', appliedPromoId);
+    }
+    const promo = await promoQuery.first();
+    if (promo) {
+      if (promo.target_service.includes('all') || promo.target_service.includes('travel')) {
+        appliedPromoId = promo.id;
+        promoObj = promo;
+      } else {
+        appliedPromoId = null;
+      }
+    }
+  } catch (err) {
+    console.error("Error querying promo outside transaction:", err);
+  }
+
+  // Initialize remaining discount limit for this group booking
+  let remainingDiscountLimit = promoObj && promoObj.max_discount && parseFloat(promoObj.max_discount) > 0
+    ? parseFloat(promoObj.max_discount)
+    : Infinity;
+
+  // 6. Simpan semua baris booking dalam sebuah Transaksi Database
   const createdBookings = [];
   await db.transaction(async (trx) => {
     for (const passenger of passengers) {
@@ -468,35 +494,22 @@ const createBooking = async (data) => {
       if (isNaN(originalPrice)) originalPrice = 250000;
 
       let finalPrice = originalPrice;
-      let appliedPromoId = data.promo_id || null;
-      let promoObj = null;
+      let appliedDiscountForThisSeat = 0;
 
-      try {
-        let promoQuery = trx('promotions').where('is_active', true);
-        if (appliedPromoId) {
-          promoQuery = promoQuery.andWhere('id', appliedPromoId);
+      if (appliedPromoId && promoObj) {
+        let discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+        if (discount > remainingDiscountLimit) {
+          discount = remainingDiscountLimit;
         }
-        const promo = await promoQuery.first();
-        if (promo) {
-          if (promo.target_service.includes('all') || promo.target_service.includes('travel')) {
-            appliedPromoId = promo.id;
-            promoObj = promo;
-            const discount = finalPrice * (parseFloat(promo.discount_percentage) / 100);
-            finalPrice = finalPrice - discount;
-          } else {
-            appliedPromoId = null;
-          }
-        }
-      } catch (err) {
-        console.error("Error applying promo:", err);
+        remainingDiscountLimit -= discount;
+        finalPrice = finalPrice - discount;
+        appliedDiscountForThisSeat = discount;
       }
 
       let isBaggageCharge = false;
       const weight = parseFloat(passenger.baggage_weight || 0);
       if (weight >= 60.00 || passenger.baggage_dimension === 'super_besar') {
         isBaggageCharge = true;
-        finalPrice += 250000.00;
-        originalPrice += 250000.00;
       }
 
       let finalBookingStatus = 'menunggu_konfirmasi';
@@ -508,9 +521,20 @@ const createBooking = async (data) => {
           finalPrice += 250000;
           originalPrice += 250000;
         }
+        appliedDiscountForThisSeat = 0;
         if (appliedPromoId && promoObj) {
-          const discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+          let discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+          if (discount > remainingDiscountLimit) {
+            discount = remainingDiscountLimit;
+          }
+          remainingDiscountLimit -= discount;
           finalPrice = finalPrice - discount;
+          appliedDiscountForThisSeat = discount;
+        }
+      } else {
+        if (isBaggageCharge) {
+          finalPrice += 250000;
+          originalPrice += 250000;
         }
       }
 
@@ -530,6 +554,7 @@ const createBooking = async (data) => {
         price: finalPrice,
         original_price: originalPrice,
         promo_id: appliedPromoId,
+        discount_amount: appliedDiscountForThisSeat,
         booking_code: bookingCode,
         passenger_name: passenger.passenger_name || 'Penumpang'
       }).returning('*');
