@@ -169,6 +169,10 @@ const verifyCharterPayment = async (req, res) => {
     if (fleet_id !== undefined) extraFields.fleet_id = fleet_id;
     if (driver_2_id !== undefined) extraFields.driver_2_id = driver_2_id;
 
+    if (nextStatus === 'menunggu_pembayaran') {
+      extraFields.locked_until = new Date(Date.now() + 10 * 60 * 1000);
+    }
+
     // Promo Logic untuk Charter
     if (offered_price !== undefined) {
       let finalPrice = parseFloat(offered_price);
