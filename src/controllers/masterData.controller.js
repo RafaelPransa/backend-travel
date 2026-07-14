@@ -111,6 +111,37 @@ const updateRecord = (table) => async (req, res) => {
       data.password = await bcrypt.hash(data.password, salt);
     }
 
+    // Perhitungan promo otomatis saat admin menetapkan harga paket
+    if (table === 'package_shipments' && data.original_price !== undefined) {
+      let originalPrice = parseFloat(data.original_price);
+      let appliedPromoId = null;
+      let appliedDiscountAmount = 0;
+
+      try {
+        const db = require('../config/db');
+        const promo = await db('promotions').where('is_active', true).first();
+
+        if (promo && (promo.target_service.includes('all') || promo.target_service.includes('package'))) {
+          let discount = originalPrice * (parseFloat(promo.discount_percentage) / 100);
+
+          if (promo.max_discount && parseFloat(promo.max_discount) > 0) {
+            const maxDiscount = parseFloat(promo.max_discount);
+            if (discount > maxDiscount) {
+              discount = maxDiscount;
+            }
+          }
+
+          appliedPromoId = promo.id;
+          appliedDiscountAmount = discount;
+        }
+      } catch (err) {
+        console.error("Promo calculation error for package:", err);
+      }
+
+      data.promo_id = appliedPromoId;
+      data.discount_amount = appliedDiscountAmount;
+    }
+
     // Validasi hari keberangkatan rute travel
     if (table === 'schedules') {
       const current = await MasterDataModel.getById('schedules', id);
