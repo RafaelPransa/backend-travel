@@ -9,17 +9,43 @@ const db = require('../config/db');
 const startSeatLockCron = () => {
   cron.schedule('* * * * *', async () => {
     try {
-      const expiredBookings = await db('travel_bookings')
+      const now = db.fn.now();
+
+      // 1. Auto-cancel Travel
+      const expiredTravel = await db('travel_bookings')
         .where('booking_status', 'menunggu_pembayaran')
-        .where('locked_until', '<', db.fn.now())
-        .limit(100) // Batasi jumlah record per siklus untuk mencegah overload
+        .where('locked_until', '<', now)
+        .limit(100)
         .update({
           booking_status: 'dibatalkan'
         })
         .returning('id');
 
-      if (expiredBookings.length > 0) {
-        console.log(`[Cron Job] ${new Date().toISOString()} - Membatalkan ${expiredBookings.length} pemesanan expired.`);
+      // 2. Auto-cancel Charter
+      const expiredCharter = await db('charter_bookings')
+        .where('status', 'menunggu_pembayaran')
+        .where('locked_until', '<', now)
+        .limit(100)
+        .update({
+          status: 'dibatalkan',
+          fleet_id: null
+        })
+        .returning('id');
+
+      // 3. Auto-cancel Paket
+      const expiredPackages = await db('package_shipments')
+        .where('transaction_status', 'menunggu_pembayaran')
+        .where('locked_until', '<', now)
+        .limit(100)
+        .update({
+          status: 'dibatalkan',
+          transaction_status: 'dibatalkan',
+          fleet_id: null
+        })
+        .returning('id');
+
+      if (expiredTravel.length > 0 || expiredCharter.length > 0 || expiredPackages.length > 0) {
+        console.log(`[Cron Job] ${new Date().toISOString()} - Auto-canceled: ${expiredTravel.length} Travel, ${expiredCharter.length} Charter, ${expiredPackages.length} Paket.`);
       }
     } catch (error) {
       console.error('[Cron Job] Error saat menjalankan pembatalan pemesanan expired:', error.message);

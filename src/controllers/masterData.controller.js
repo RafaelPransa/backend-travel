@@ -142,6 +142,11 @@ const updateRecord = (table) => async (req, res) => {
       data.discount_amount = appliedDiscountAmount;
     }
 
+    // Set locked_until saat status paket diubah ke menunggu_pembayaran
+    if (table === 'package_shipments' && data.transaction_status === 'menunggu_pembayaran') {
+      data.locked_until = new Date(Date.now() + 10 * 60 * 1000);
+    }
+
     // Validasi hari keberangkatan rute travel
     if (table === 'schedules') {
       const current = await MasterDataModel.getById('schedules', id);
