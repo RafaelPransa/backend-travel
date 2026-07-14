@@ -496,16 +496,6 @@ const createBooking = async (data) => {
       let finalPrice = originalPrice;
       let appliedDiscountForThisSeat = 0;
 
-      if (appliedPromoId && promoObj) {
-        let discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
-        if (discount > remainingDiscountLimit) {
-          discount = remainingDiscountLimit;
-        }
-        remainingDiscountLimit -= discount;
-        finalPrice = finalPrice - discount;
-        appliedDiscountForThisSeat = discount;
-      }
-
       let isBaggageCharge = false;
       const weight = parseFloat(passenger.baggage_weight || 0);
       if (weight >= 60.00 || passenger.baggage_dimension === 'super_besar') {
@@ -521,7 +511,6 @@ const createBooking = async (data) => {
           finalPrice += 250000;
           originalPrice += 250000;
         }
-        appliedDiscountForThisSeat = 0;
         if (appliedPromoId && promoObj) {
           let discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
           if (discount > remainingDiscountLimit) {
@@ -532,6 +521,15 @@ const createBooking = async (data) => {
           appliedDiscountForThisSeat = discount;
         }
       } else {
+        if (appliedPromoId && promoObj) {
+          let discount = finalPrice * (parseFloat(promoObj.discount_percentage) / 100);
+          if (discount > remainingDiscountLimit) {
+            discount = remainingDiscountLimit;
+          }
+          remainingDiscountLimit -= discount;
+          finalPrice = finalPrice - discount;
+          appliedDiscountForThisSeat = discount;
+        }
         if (isBaggageCharge) {
           finalPrice += 250000;
           originalPrice += 250000;
